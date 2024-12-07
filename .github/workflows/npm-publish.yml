@@ -30,6 +30,9 @@ jobs:
           cache: 'yarn'
       - name: Install Yarn
         run: npm install -g yarn
+      - name: Setup npm auth
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
       - run: yarn ci
       - run: npm publish --access public
         env:
