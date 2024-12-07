@@ -12,3 +12,14 @@ export interface TelegramConfig {
   batchDelay?: number;  // in ms, default 60000
   development?: boolean;
 }
+
+export type Message = {
+  chatId: string;
+  text: string;
+};
+
+export type BatcherConfig = {
+  maxBatchSize: number;
+  maxWaitMs: number;
+  processBatch: (messages: Message[]) => Promise<void> | void;
+};

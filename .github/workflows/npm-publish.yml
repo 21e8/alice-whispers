@@ -17,6 +17,7 @@ jobs:
       - name: Install Yarn
         run: npm install -g yarn
       - run: yarn ci
+      - run: yarn test
 
   publish-npm:
     needs: build
@@ -31,6 +32,7 @@ jobs:
       - name: Install Yarn
         run: npm install -g yarn
       - run: yarn ci
+      - run: yarn test
       - run: yarn publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}} 
