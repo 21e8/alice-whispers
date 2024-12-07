@@ -34,6 +34,9 @@ jobs:
         run: |
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
       - run: yarn ci
-      - run: yarn publish --non-interactive
+      - name: Update package version
+        run: npm version $VERSION --no-git-tag-version
+      - name: Publish package
+        run: yarn publish --access public --non-interactive
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}} 
