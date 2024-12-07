@@ -1,12 +1,8 @@
-import type { Config } from '@jest/types';
-
-const config: Config.InitialOptions = {
+/** @type {import('ts-jest').JestConfigWithTsJest} */
+export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.ts'],
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
-  },
+  setupFilesAfterEnv: ['./jest.setup.ts'],
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
@@ -15,10 +11,13 @@ const config: Config.InitialOptions = {
       },
     ],
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!(node-fetch|data-uri-to-buffer|fetch-blob|formdata-polyfill)/)',
-  ],
-  setupFiles: ['<rootDir>/jest.setup.ts']
-}
-
-export default config; 
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1'
+  },
+  extensionsToTreatAsEsm: ['.ts'],
+  transformIgnorePatterns: [],
+  testMatch: ['**/__tests__/**/*.test.ts'],
+  clearMocks: true,
+  collectCoverage: true,
+  coverageDirectory: 'coverage'
+}; 

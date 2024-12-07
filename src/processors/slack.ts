@@ -1,7 +1,7 @@
 import { Message, MessageProcessor } from '../types';
 import fetch from 'node-fetch';
 
-type SlackConfig = {
+export type SlackConfig = {
   webhookUrl: string;
   channel: string;
   username?: string;

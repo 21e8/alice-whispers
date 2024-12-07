@@ -1,6 +1,10 @@
 import { Message, MessageProcessor } from '../types';
 import chalk from 'chalk';
 
+export type ConsoleProcessorConstructor = {
+  new (): ConsoleProcessor;
+};
+
 export class ConsoleProcessor implements MessageProcessor {
   async processBatch(messages: Message[]): Promise<void> {
     for (const msg of messages) {
@@ -12,7 +16,7 @@ export class ConsoleProcessor implements MessageProcessor {
           console.log(chalk.yellow('⚠'), msg.text);
           break;
         case 'error':
-          console.log(chalk.red('��'), msg.text);
+          console.log(chalk.red('🚨'), msg.text);
           break;
       }
     }

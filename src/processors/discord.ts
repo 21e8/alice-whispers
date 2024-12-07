@@ -1,7 +1,7 @@
 import { Message, MessageProcessor } from '../types';
-import fetch from 'node-fetch';
+// import fetch from 'node-fetch';
 
-type DiscordConfig = {
+export type DiscordConfig = {
   webhookUrl: string;
   username?: string;
 };

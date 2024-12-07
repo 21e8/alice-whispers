@@ -10,12 +10,11 @@ describe('TelegramProcessor', () => {
   };
 
   beforeEach(() => {
-    fetchStub = sinon.stub().resolves({ ok: true });
-    global.fetch = fetchStub;
+    fetchStub = sinon.stub(global, 'fetch').resolves(new Response());
   });
 
   afterEach(() => {
-    sinon.restore();
+    fetchStub.restore();
   });
 
   it('should send formatted messages to telegram API', async () => {
@@ -59,7 +58,7 @@ describe('TelegramProcessor', () => {
   });
 
   it('should throw error on failed API response', async () => {
-    fetchStub.resolves({ ok: false, statusText: 'Bad Request' });
+    fetchStub.resolves(new Response('Error', { status: 400, statusText: 'Bad Request' }));
     const processor = new TelegramProcessor(defaultConfig);
     const messages: Message[] = [
       { chatId: 'default', text: 'test message', level: 'info' }
@@ -117,5 +116,6 @@ describe('TelegramProcessor', () => {
       'Development mode, not sending to Telegram:',
       messages
     );
+    consoleSpy.restore();
   });
 }); 

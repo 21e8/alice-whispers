@@ -2,13 +2,17 @@ import {
   type Message,
   type TelegramConfig,
   type MessageProcessor,
-  NotificationLevel,
+  type NotificationLevel,
 } from '../types';
 
 const LEVEL_EMOJIS: Record<NotificationLevel, string> = {
   info: 'ℹ️',
   warning: '⚠️',
   error: '🚨',
+};
+
+export type TelegramProcessorConstructor = {
+  new (config: TelegramConfig): TelegramProcessor;
 };
 
 export class TelegramProcessor implements MessageProcessor {

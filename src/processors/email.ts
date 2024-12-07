@@ -1,7 +1,7 @@
 import { Message, MessageProcessor } from '../types';
-import nodemailer from 'nodemailer';
+import { createTransport, Transporter } from 'nodemailer';
 
-type EmailConfig = {
+export type EmailConfig = {
   host: string;
   port: number;
   secure: boolean;
@@ -15,23 +15,23 @@ type EmailConfig = {
 };
 
 export class EmailProcessor implements MessageProcessor {
-  private transporter: nodemailer.Transporter;
+  private transporter: Transporter;
   private config: EmailConfig;
 
   constructor(config: EmailConfig) {
     this.config = config;
-    this.transporter = nodemailer.createTransport({
+    this.transporter = createTransport({
       host: config.host,
       port: config.port,
       secure: config.secure,
-      auth: config.auth
+      auth: config.auth,
     });
   }
 
   async processBatch(messages: Message[]): Promise<void> {
-    const htmlContent = messages.map(msg => 
-      `<p>${this.getLevelBadge(msg.level)} ${msg.text}</p>`
-    ).join('\n');
+    const htmlContent = messages
+      .map((msg) => `<p>${this.getLevelBadge(msg.level)} ${msg.text}</p>`)
+      .join('\n');
 
     await this.transporter.sendMail({
       from: this.config.from,
@@ -41,7 +41,7 @@ export class EmailProcessor implements MessageProcessor {
         <div style="font-family: sans-serif;">
           ${htmlContent}
         </div>
-      `
+      `,
     });
   }
 
@@ -49,8 +49,8 @@ export class EmailProcessor implements MessageProcessor {
     const badges = {
       info: '�� INFO',
       warning: '🟡 WARNING',
-      error: '🔴 ERROR'
+      error: '🔴 ERROR',
     };
     return badges[level as keyof typeof badges] || level;
   }
-} 
+}
