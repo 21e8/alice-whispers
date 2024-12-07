@@ -15,6 +15,7 @@
   },
   "files": [
     "dist",
+    "dist/**/*",
     "README.md"
   ],
   "repository": {
