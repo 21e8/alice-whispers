@@ -1,7 +1,7 @@
 {
-  "name": "@vbase/telegram-bot",
+  "name": "0xalice-telegram-bot",
   "version": "0.1.0",
-  "description": "Batched Telegram notification bot for VBase",
+  "description": "Batched Telegram notification bot for 0xAlice",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vbase/telegram-bot.git"
+    "url": "git+https://github.com/21e8/telegram-batch-bot.git"
   },
   "keywords": [
     "telegram",
