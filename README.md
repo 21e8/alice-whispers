@@ -4,8 +4,27 @@ Batched Telegram notification bot for 0xAlice.
 
 ## Installation
 
+### From npm registry
 ```bash
+npm install 0xalice-tgram-bot
+# or with yarn
 yarn add 0xalice-tgram-bot
+```
+
+### From GitHub Packages
+First, authenticate with GitHub Packages:
+```bash
+npm login --registry=https://npm.pkg.github.com
+# or create .npmrc with:
+@21e8:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+Then install:
+```bash
+npm install @21e8/0xalice-tgram-bot
+# or with yarn
+yarn add @21e8/0xalice-tgram-bot
 ```
 
 ## Usage
