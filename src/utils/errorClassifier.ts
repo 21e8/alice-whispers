@@ -2,10 +2,9 @@ type ErrorPattern = {
   pattern: RegExp;
   category: string;
   severity: 'low' | 'medium' | 'high';
-  backpressure?: {
-    windowMs: number;
-    maxErrors: number;
-    cooldownMs: number;
+  aggregation?: {
+    windowMs: number;    // Time window to aggregate similar errors
+    countThreshold: number;  // Number of errors before aggregating
   };
 };
 
@@ -15,27 +14,21 @@ const DEFAULT_ERROR_PATTERNS: ErrorPattern[] = [
     pattern: /duplicate key value violates unique constraint/i,
     category: 'DATABASE_CONSTRAINT_VIOLATION',
     severity: 'medium',
-    backpressure: {
-      windowMs: 60000,
-      maxErrors: 5,
-      cooldownMs: 300000
+    aggregation: {
+      windowMs: 60000,  // 1 minute
+      countThreshold: 5 // Aggregate after 5 similar errors
     }
   },
   {
     pattern: /connection refused|connection timeout/i,
     category: 'CONNECTION_ERROR',
     severity: 'high',
-    backpressure: {
-      windowMs: 30000,
-      maxErrors: 3,
-      cooldownMs: 60000
-    }
   },
   {
     pattern: /invalid signature|unauthorized/i,
     category: 'AUTH_ERROR',
-    severity: 'high'
-  }
+    severity: 'high',
+  },
 ];
 
 // Store custom patterns
@@ -54,10 +47,11 @@ function getPatterns(): ErrorPattern[] {
   return [...customPatterns, ...DEFAULT_ERROR_PATTERNS];
 }
 
-// Track error occurrences
+// Track error occurrences for aggregation
 const errorTracker = new Map<string, {
   timestamps: number[];
-  cooldownUntil?: number;
+  count: number;
+  firstOccurrence: number;
 }>();
 
 type ClassifiedError = {
@@ -65,64 +59,64 @@ type ClassifiedError = {
   category: string;
   severity: 'low' | 'medium' | 'high';
   details?: Record<string, string>;
-  shouldThrottle: boolean;
-  nextAllowedTimestamp?: number;
+  isAggregated: boolean;
+  occurrences?: number;
+  timeWindow?: string;
 };
 
 export function classifyError(error: Error | string): ClassifiedError {
   const message = error instanceof Error ? error.message : error;
   const now = Date.now();
-  
-  for (const { pattern, category, severity, backpressure } of getPatterns()) {
+
+  for (const { pattern, category, severity, aggregation } of getPatterns()) {
     if (pattern.test(message)) {
       const details: Record<string, string> = {};
-      
-      // Extract specific details based on category
+      let trackerKey = `${category}`;
+
       if (category === 'DATABASE_CONSTRAINT_VIOLATION') {
         const constraint = message.match(/constraint "([^"]+)"/)?.[1];
         if (constraint) {
           details.constraint = constraint;
+          trackerKey += `:${constraint}`;
         }
       }
 
-      // Handle backpressure if configured
-      let shouldThrottle = false;
-      let nextAllowedTimestamp: number | undefined;
+      if (aggregation) {
+        const tracker = errorTracker.get(trackerKey) || {
+          timestamps: [],
+          count: 0,
+          firstOccurrence: now
+        };
 
-      if (backpressure) {
-        const tracker = errorTracker.get(category) || { timestamps: [] };
-        
-        // Check if in cooldown
-        if (tracker.cooldownUntil && now < tracker.cooldownUntil) {
-          shouldThrottle = true;
-          nextAllowedTimestamp = tracker.cooldownUntil;
-        } else {
-          // Clean old timestamps
-          tracker.timestamps = tracker.timestamps.filter(
-            t => t > now - backpressure.windowMs
-          );
+        // Clean old timestamps
+        tracker.timestamps = tracker.timestamps.filter(
+          t => t > now - aggregation.windowMs
+        );
+        tracker.timestamps.push(now);
+        tracker.count++;
 
-          // Add current timestamp
-          tracker.timestamps.push(now);
+        errorTracker.set(trackerKey, tracker);
 
-          // Check if threshold exceeded
-          if (tracker.timestamps.length >= backpressure.maxErrors) {
-            shouldThrottle = true;
-            tracker.cooldownUntil = now + backpressure.cooldownMs;
-            nextAllowedTimestamp = tracker.cooldownUntil;
-          }
+        if (tracker.timestamps.length >= aggregation.countThreshold) {
+          const timeWindow = Math.ceil((now - tracker.firstOccurrence) / 1000);
+          return {
+            originalMessage: message,
+            category,
+            severity,
+            details,
+            isAggregated: true,
+            occurrences: tracker.count,
+            timeWindow: `${timeWindow}s`
+          };
         }
-
-        errorTracker.set(category, tracker);
       }
-      
+
       return {
         originalMessage: message,
         category,
         severity,
-        details: Object.keys(details).length > 0 ? details : undefined,
-        shouldThrottle,
-        nextAllowedTimestamp
+        details,
+        isAggregated: false
       };
     }
   }
@@ -131,11 +125,11 @@ export function classifyError(error: Error | string): ClassifiedError {
     originalMessage: message,
     category: 'UNKNOWN_ERROR',
     severity: 'medium',
-    shouldThrottle: false
+    isAggregated: false
   };
 }
 
 // Optional: Add method to clear error tracking
 export function clearErrorTracking(): void {
   errorTracker.clear();
-} 
+}

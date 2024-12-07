@@ -22,32 +22,35 @@ export function createTelegramProcessor(
       .map((msg) => {
         const prefix = msg.level.toUpperCase();
         let text = `[${prefix}] ${msg.text}`;
-
+        
         if (msg.level === 'error' && msg.error) {
           const classified = classifyError(msg.error);
-
-          // Skip throttled errors
-          if (classified.shouldThrottle) {
-            if (classified.nextAllowedTimestamp) {
-              const waitMinutes = Math.ceil(
-                (classified.nextAllowedTimestamp - Date.now()) / 60000
-              );
-              text += `\n[THROTTLED] Similar errors suppressed for ${waitMinutes} minutes`;
+          
+          if (classified.isAggregated) {
+            text += `\n[AGGREGATED] ${classified.occurrences} similar errors in ${classified.timeWindow}`;
+            text += `\nCategory: ${classified.category}`;
+            if (classified.details) {
+              text += `\nDetails: ${JSON.stringify(classified.details)}`;
             }
-            return null;
+            return text;
           }
-
+          
           text += `\nCategory: ${classified.category}`;
           text += `\nSeverity: ${classified.severity}`;
           if (classified.details) {
             text += `\nDetails: ${JSON.stringify(classified.details)}`;
           }
         }
-
+        
         return text;
       })
-      .filter(Boolean) // Remove null entries from throttled errors
+      .filter(Boolean)
       .join('\n');
+
+    if (!formattedMessages.length) {
+      console.log('[Telegram] No messages to send');
+      return;
+    }
 
     const response = await fetch(`${baseUrl}/sendMessage`, {
       method: 'POST',
