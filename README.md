@@ -1,19 +1,19 @@
-# @vbase/telegram-bot
+# 0xAlice Telegram Bot
 
-Batched Telegram notification bot for VBase.
+Batched Telegram notification bot for 0xAlice.
 
 ## Installation
 
 ```bash
-yarn add @vbase/telegram-bot
+yarn add 0xalice-tgram-bot
 ```
 
 ## Usage
 
 ```typescript
-import { TelegramBot } from '@vbase/telegram-bot';
+import { MessageBatcher } from '0xalice-tgram-bot';
 
-const bot = new TelegramBot({
+const bot = new MessageBatcher({
   botToken: process.env.TELEGRAM_BOT_TOKEN!,
   chatId: process.env.TELEGRAM_CHAT_ID!,
   batchDelay: 60000, // optional, defaults to 60000
