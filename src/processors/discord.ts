@@ -6,34 +6,30 @@ export type DiscordConfig = {
   username?: string;
 };
 
-export class DiscordProcessor implements MessageProcessor {
-  private config: DiscordConfig;
-
-  constructor(config: DiscordConfig) {
-    this.config = config;
-  }
-
-  async processBatch(messages: Message[]): Promise<void> {
-    const content = messages.map(msg => 
-      `${this.getLevelEmoji(msg.level)} ${msg.text}`
-    ).join('\n\n');
-
-    await fetch(this.config.webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content,
-        username: this.config.username
-      })
-    });
-  }
-
-  private getLevelEmoji(level: string): string {
+export function createDiscordProcessor(config: DiscordConfig): MessageProcessor {
+  function getLevelEmoji(level: string): string {
     const emojis = {
-      info: '�',
+      info: 'ℹ️',
       warning: '⚠️',
       error: '🚨'
     };
     return emojis[level as keyof typeof emojis] || '';
   }
+
+  async function processBatch(messages: Message[]): Promise<void> {
+    const content = messages.map(msg => 
+      `${getLevelEmoji(msg.level)} ${msg.text}`
+    ).join('\n\n');
+
+    await fetch(config.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content,
+        username: config.username
+      })
+    });
+  }
+
+  return { processBatch };
 } 

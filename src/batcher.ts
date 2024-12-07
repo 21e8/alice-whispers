@@ -6,23 +6,18 @@ import {
   type MessageBatcher,
 } from './types';
 
-let instance: MessageBatcher | null = null;
+const globalQueues: Map<string, Message[]> = new Map();
 
 export function createMessageBatcher(
   processors: MessageProcessor[],
   config: Required<BatcherConfig>
 ): MessageBatcher {
-  if (instance) {
-    return instance;
-  }
-
-  const queues: Map<string, Message[]> = new Map();
   const timers: Map<string, NodeJS.Timeout> = new Map();
   let processInterval: NodeJS.Timeout | null = null;
 
   function startProcessing(): void {
     processInterval = setInterval(() => {
-      for (const chatId of queues.keys()) {
+      for (const chatId of globalQueues.keys()) {
         processBatch(chatId);
       }
     }, config.maxWaitMs);
@@ -42,11 +37,11 @@ export function createMessageBatcher(
 
   function queueMessage(message: string, level: NotificationLevel): void {
     const chatId = 'default';
-    if (!queues.has(chatId)) {
-      queues.set(chatId, []);
+    if (!globalQueues.has(chatId)) {
+      globalQueues.set(chatId, []);
     }
 
-    const queue = queues.get(chatId) ?? [];
+    const queue = globalQueues.get(chatId) ?? [];
     queue.push({ chatId, text: message, level });
 
     if (queue.length >= config.maxBatchSize) {
@@ -55,11 +50,11 @@ export function createMessageBatcher(
   }
 
   async function processBatch(chatId: string): Promise<void> {
-    const queue = queues.get(chatId);
+    const queue = globalQueues.get(chatId);
     if (!queue?.length) return;
 
     const batch = [...queue];
-    queues.set(chatId, []);
+    globalQueues.set(chatId, []);
 
     const results = await Promise.allSettled(
       processors.map((processor) => processor.processBatch(batch))
@@ -73,7 +68,7 @@ export function createMessageBatcher(
   }
 
   async function flush(): Promise<void> {
-    for (const chatId of queues.keys()) {
+    for (const chatId of globalQueues.keys()) {
       await processBatch(chatId);
     }
   }
@@ -87,11 +82,13 @@ export function createMessageBatcher(
       clearTimeout(timer);
     }
     timers.clear();
-    queues.clear();
   }
 
-  // Create the instance
-  instance = {
+  // Start processing on creation
+  startProcessing();
+
+  // Return a new instance
+  return {
     info,
     warning,
     error,
@@ -99,17 +96,9 @@ export function createMessageBatcher(
     flush,
     destroy,
   };
-
-  // Start processing on creation
-  startProcessing();
-
-  return instance;
 }
 
-// Add a way to reset the singleton (mainly for testing)
+// Reset function now only clears the queue
 export function resetBatcher(): void {
-  if (instance) {
-    instance.destroy();
-    instance = null;
-  }
+  globalQueues.clear();
 }

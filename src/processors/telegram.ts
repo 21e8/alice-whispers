@@ -1,54 +1,40 @@
-import {
-  type Message,
-  type TelegramConfig,
-  type MessageProcessor,
-  type NotificationLevel,
-} from '../types';
+import type { Message, MessageProcessor, TelegramConfig } from '../types';
+// import fetch from 'node-fetch';
 
-const LEVEL_EMOJIS: Record<NotificationLevel, string> = {
-  info: 'ℹ️',
-  warning: '⚠️',
-  error: '🚨',
-};
+export function createTelegramProcessor(config: TelegramConfig): MessageProcessor {
+  const { botToken, chatId, development = false } = config;
+  const baseUrl = `https://api.telegram.org/bot${botToken}`;
 
-export type TelegramProcessorConstructor = {
-  new (config: TelegramConfig): TelegramProcessor;
-};
-
-export class TelegramProcessor implements MessageProcessor {
-  private config: TelegramConfig;
-
-  constructor(config: TelegramConfig) {
-    this.config = config;
-  }
-
-  public async processBatch(messages: Message[]): Promise<void> {
-    if (this.config.development) {
-      console.log('Development mode, not sending to Telegram:', messages);
+  async function processBatch(messages: Message[]): Promise<void> {
+    if (development) {
+      console.log('[Telegram] Would send messages:', messages);
+      return;
+    }
+    
+    if (!messages.length) {
       return;
     }
 
-    if (!messages.length) return;
-
     const text = messages
-      .map((msg) => `${LEVEL_EMOJIS[msg.level]} ${msg.text}`)
-      .join('\n\n');
+      .map((msg) => `[${msg.level.toUpperCase()}] ${msg.text}`)
+      .join('\n');
 
-    const response = await fetch(
-      `https://api.telegram.org/bot${this.config.botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: this.config.chatId,
-          text,
-          parse_mode: 'HTML',
-        }),
-      }
-    );
+    const response = await fetch(`${baseUrl}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+      }),
+    });
 
     if (!response.ok) {
-      throw new Error(`Failed to send message to Telegram: ${response.statusText}`);
+      throw new Error(`Telegram API error: ${response.statusText}`);
     }
   }
+
+  return {
+    processBatch,
+  };
 }

@@ -1,12 +1,8 @@
 import { Message, MessageProcessor } from '../types';
 import chalk from 'chalk';
 
-export type ConsoleProcessorConstructor = {
-  new (): ConsoleProcessor;
-};
-
-export class ConsoleProcessor implements MessageProcessor {
-  async processBatch(messages: Message[]): Promise<void> {
+export function createConsoleProcessor(): MessageProcessor {
+  async function processBatch(messages: Message[]): Promise<void> {
     for (const msg of messages) {
       switch (msg.level) {
         case 'info':
@@ -21,4 +17,6 @@ export class ConsoleProcessor implements MessageProcessor {
       }
     }
   }
+
+  return { processBatch };
 } 

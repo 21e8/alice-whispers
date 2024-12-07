@@ -1,5 +1,5 @@
 import { Message, MessageProcessor } from '../types';
-import fetch from 'node-fetch';
+// import fetch from 'node-fetch';  // Uncomment this
 
 export type SlackConfig = {
   webhookUrl: string;
@@ -7,34 +7,8 @@ export type SlackConfig = {
   username?: string;
 };
 
-export class SlackProcessor implements MessageProcessor {
-  private config: SlackConfig;
-
-  constructor(config: SlackConfig) {
-    this.config = config;
-  }
-
-  async processBatch(messages: Message[]): Promise<void> {
-    const blocks = messages.map(msg => ({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `${this.getLevelEmoji(msg.level)} ${msg.text}`
-      }
-    }));
-
-    await fetch(this.config.webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        channel: this.config.channel,
-        username: this.config.username,
-        blocks
-      })
-    });
-  }
-
-  private getLevelEmoji(level: string): string {
+export function createSlackProcessor(config: SlackConfig): MessageProcessor {
+  function getLevelEmoji(level: string): string {
     const emojis = {
       info: ':information_source:',
       warning: ':warning:',
@@ -42,4 +16,30 @@ export class SlackProcessor implements MessageProcessor {
     };
     return emojis[level as keyof typeof emojis] || '';
   }
-} 
+
+  async function processBatch(messages: Message[]): Promise<void> {
+    if (!messages.length) {
+      return;
+    }
+
+    const blocks = messages.map(msg => ({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `${getLevelEmoji(msg.level)} ${msg.text}`
+      }
+    }));
+
+    await fetch(config.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channel: config.channel,
+        username: config.username,
+        blocks
+      })
+    });
+  }
+
+  return { processBatch };
+}

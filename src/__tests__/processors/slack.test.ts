@@ -1,13 +1,7 @@
-import { SlackProcessor } from '../../processors/slack';
-import type { SlackConfig } from '../../processors/slack';
+import { createSlackProcessor } from '../../processors/slack';
 import type { Message } from '../../types';
 
-jest.mock('node-fetch', () => {
-  return jest.fn();
-});
-
 describe('SlackProcessor', () => {
-  let processor: SlackProcessor;
   const mockConfig = {
     webhookUrl: 'https://hooks.slack.com/test',
     channel: '#test-channel',
@@ -15,25 +9,28 @@ describe('SlackProcessor', () => {
   };
 
   beforeEach(() => {
-    processor = new SlackProcessor(mockConfig);
-    const fetch = jest.requireMock('node-fetch');
-    fetch.mockClear();
+    // Mock the native fetch
+    (global.fetch as jest.Mock) = jest.fn(() => 
+      Promise.resolve({ ok: true })
+    );
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should format messages with appropriate emojis', async () => {
+    const processor = createSlackProcessor(mockConfig);
     const messages: Message[] = [
       { chatId: 'test', text: 'info message', level: 'info' },
       { chatId: 'test', text: 'warning message', level: 'warning' },
       { chatId: 'test', text: 'error message', level: 'error' }
     ];
 
-    const fetch = jest.requireMock('node-fetch');
-    fetch.mockResolvedValueOnce({ ok: true });
-
     await processor.processBatch(messages);
 
-    expect(fetch).toHaveBeenCalledTimes(1);
-    const [url, options] = fetch.mock.calls[0];
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
     
     expect(url).toBe(mockConfig.webhookUrl);
     const body = JSON.parse(options.body);
@@ -45,32 +42,27 @@ describe('SlackProcessor', () => {
     expect(body.blocks[2].text.text).toContain(':rotating_light: error message');
   });
 
-//   it('should handle empty message batch', async () => {
-//     const fetch = jest.requireMock('node-fetch');
-//     await processor.processBatch([]);
-//     expect(fetch).not.toHaveBeenCalled();
-//   });
-
   it('should use default username when not provided', async () => {
     const configWithoutUsername = {
       webhookUrl: mockConfig.webhookUrl,
       channel: mockConfig.channel
     };
-    const basicProcessor = new SlackProcessor(configWithoutUsername);
+    const processor = createSlackProcessor(configWithoutUsername);
     
     const messages: Message[] = [
       { chatId: 'test', text: 'test message', level: 'info' }
     ];
 
-    const fetch = jest.requireMock('node-fetch');
-    fetch.mockResolvedValueOnce({ ok: true });
+    await processor.processBatch(messages);
 
-    await basicProcessor.processBatch(messages);
-
-    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    const [, options] = (global.fetch as jest.Mock).mock.calls[0];
+    const body = JSON.parse(options.body);
     expect(body.username).toBeUndefined();
   });
-});
 
-// Make sure this is a module
-export {}; 
+  it('should not make API call for empty messages', async () => {
+    const processor = createSlackProcessor(mockConfig);
+    await processor.processBatch([]);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+});

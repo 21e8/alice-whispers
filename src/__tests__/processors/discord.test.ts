@@ -1,4 +1,4 @@
-import { DiscordProcessor } from '../../processors/discord';
+import { createDiscordProcessor } from '../../processors/discord';
 import type { Message } from '../../types';
 
 describe('DiscordProcessor', () => {
@@ -12,7 +12,7 @@ describe('DiscordProcessor', () => {
   });
 
   it('should format messages with appropriate emojis', async () => {
-    const processor = new DiscordProcessor(mockConfig);
+    const processor = createDiscordProcessor(mockConfig);
     const messages: Message[] = [
       { chatId: 'test', text: 'test message', level: 'info' }
     ];
@@ -30,7 +30,7 @@ describe('DiscordProcessor', () => {
   });
 
   it('should send empty content for empty message batch', async () => {
-    const processor = new DiscordProcessor(mockConfig);
+    const processor = createDiscordProcessor(mockConfig);
     await processor.processBatch([]);
     
     expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -40,20 +40,20 @@ describe('DiscordProcessor', () => {
     const configWithoutUsername = {
       webhookUrl: mockConfig.webhookUrl
     };
-    const basicProcessor = new DiscordProcessor(configWithoutUsername);
+    const processor = createDiscordProcessor(configWithoutUsername);
     
     const messages: Message[] = [
       { chatId: 'test', text: 'test message', level: 'info' }
     ];
 
-    await basicProcessor.processBatch(messages);
+    await processor.processBatch(messages);
 
     const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
     expect(body.username).toBeUndefined();
   });
 
   it('should join multiple messages with newlines', async () => {
-    const processor = new DiscordProcessor(mockConfig);
+    const processor = createDiscordProcessor(mockConfig);
     const messages: Message[] = [
       { chatId: 'test', text: 'first message', level: 'info' },
       { chatId: 'test', text: 'second message', level: 'info' }
@@ -64,4 +64,4 @@ describe('DiscordProcessor', () => {
     const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
     expect(body.content.split('\n\n').length).toBe(2);
   });
-}); 
+});
