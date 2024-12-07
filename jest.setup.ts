@@ -7,7 +7,13 @@ class MockResponse implements Response {
   readonly redirected: boolean;
   readonly status: number;
   readonly statusText: string;
-  readonly type: "basic" | "cors" | "default" | "error" | "opaque" | "opaqueredirect";
+  readonly type:
+    | 'basic'
+    | 'cors'
+    | 'default'
+    | 'error'
+    | 'opaque'
+    | 'opaqueredirect';
   readonly url: string;
   readonly body: ReadableStream | null;
   readonly bodyUsed: boolean;
@@ -24,12 +30,24 @@ class MockResponse implements Response {
     this.bodyUsed = false;
   }
 
-  json() { return Promise.resolve(this.data); }
-  text() { return Promise.resolve(''); }
-  blob() { return Promise.resolve(new Blob([])); }
-  arrayBuffer() { return Promise.resolve(new ArrayBuffer(0)); }
-  formData() { return Promise.resolve(new FormData()); }
-  clone(): Response { return new MockResponse(this.data); }
+  json() {
+    return Promise.resolve(this.data);
+  }
+  text() {
+    return Promise.resolve('');
+  }
+  blob() {
+    return Promise.resolve(new Blob([]));
+  }
+  arrayBuffer() {
+    return Promise.resolve(new ArrayBuffer(0));
+  }
+  formData() {
+    return Promise.resolve(new FormData());
+  }
+  clone(): Response {
+    return new MockResponse(this.data);
+  }
 }
 
 (global.fetch as any) = jest.fn(() => Promise.resolve(new MockResponse()));

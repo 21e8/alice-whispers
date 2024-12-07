@@ -29,6 +29,7 @@ export interface MessageBatcher {
   error(message: string, error?: Error | string): void;
   queueMessage(message: string, level: NotificationLevel): void;
   flush(): Promise<void>;
+  flushSync(): void;
   destroy(): void;
 }
 

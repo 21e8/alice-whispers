@@ -236,4 +236,59 @@ describe('MessageBatcher', () => {
 
     expect(processedMessages).toHaveLength(0);
   });
+
+  it('should process messages synchronously with flushSync', async () => {
+    const processBatchSpy = jest.fn().mockResolvedValue(undefined);
+    const syncProcessor = { processBatch: processBatchSpy };
+    
+    batcher = createMessageBatcher([syncProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 1000,
+    });
+
+    batcher.info('Message 1');
+    batcher.info('Message 2');
+    batcher.flushSync();
+
+    expect(processBatchSpy).toHaveBeenCalledTimes(2);
+    expect(processBatchSpy).toHaveBeenNthCalledWith(1, [{
+      chatId: 'default',
+      text: 'Message 1',
+      level: 'info',
+      error: undefined,
+    }]);
+    expect(processBatchSpy).toHaveBeenNthCalledWith(2, [{
+      chatId: 'default',
+      text: 'Message 2',
+      level: 'info',
+      error: undefined,
+    }]);
+  });
+
+  it('should handle processor errors during sync flush', () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const processBatchSpy = jest.fn(() => Promise.reject(new Error('Process failed')));
+    const failingProcessor = { processBatch: processBatchSpy };
+
+    batcher = createMessageBatcher([failingProcessor], {
+      maxBatchSize: 2,
+      maxWaitMs: 1000,
+    });
+
+    batcher.info('Test message');
+    batcher.flushSync();
+
+    expect(processBatchSpy).toHaveBeenCalledWith([{
+      chatId: 'default',
+      text: 'Test message',
+      level: 'info',
+      error: undefined,
+    }]);
+
+    // Wait for the next tick to ensure error is logged
+    setImmediate(() => {
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+  });
 });

@@ -8,7 +8,6 @@ import {
 
 describe('ErrorClassifier', () => {
   beforeEach(() => {
-    // (console.log as jest.Mock).mockRestore();
     jest.spyOn(console, 'log').mockImplementation();
     clearErrorTracking();
     resetErrorPatterns();

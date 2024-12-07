@@ -35,7 +35,11 @@ export function createMessageBatcher(
     queueMessage(message, 'error', error);
   }
 
-  function queueMessage(message: string, level: NotificationLevel, error?: Error | string): void {
+  function queueMessage(
+    message: string,
+    level: NotificationLevel,
+    error?: Error | string
+  ): void {
     const chatId = 'default';
     if (!globalQueues.has(chatId)) {
       globalQueues.set(chatId, []);
@@ -78,16 +82,47 @@ export function createMessageBatcher(
       processors.map((processor) => processor.processBatch(batch))
     );
 
-    results.forEach((result, index) => {
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
       if (result.status === 'rejected') {
-        console.error(`Processor ${index} failed:`, result.reason);
+        console.error(`Processor ${i} failed:`, result.reason);
       }
-    });
+    }
+  }
+
+  function processBatchSync(chatId: string): void {
+    const queue = globalQueues.get(chatId);
+    if (!queue?.length) return;
+
+    const batch = [...queue];
+    globalQueues.set(chatId, []);
+
+    for (const item of batch) {
+      for (const processor of processors) {
+        try {
+          // Handle both sync and async calls
+          const result = processor.processBatch([item]);
+          if (result instanceof Promise) {
+            result.catch((error) => {
+              console.error(`Processor failed:`, error);
+            });
+          }
+        } catch (error) {
+          console.error(`Processor failed:`, error);
+        }
+      }
+    }
   }
 
   async function flush(): Promise<void> {
     for (const chatId of globalQueues.keys()) {
       await processBatch(chatId);
+    }
+  }
+
+  function flushSync(): void {
+    for (const chatId of globalQueues.keys()) {
+      processBatchSync(chatId);
     }
   }
 
@@ -112,6 +147,7 @@ export function createMessageBatcher(
     error,
     queueMessage,
     flush,
+    flushSync,
     destroy,
   };
 }

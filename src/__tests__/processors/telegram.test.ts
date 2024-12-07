@@ -1,5 +1,5 @@
 import { createTelegramProcessor } from '../../processors/telegram';
-import type { Message, TelegramConfig, NotificationLevel } from '../../types';
+import type { Message, TelegramConfig } from '../../types';
 
 describe('TelegramProcessor', () => {
   const defaultConfig: TelegramConfig = {
