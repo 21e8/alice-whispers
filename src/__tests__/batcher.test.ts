@@ -27,7 +27,7 @@ describe('MessageBatcher', () => {
     ];
 
     for (const msg of messages) {
-      await batcher.queueMessage(msg.text, msg.level);
+      batcher.queueMessage(msg.text, msg.level);
     }
 
     jest.advanceTimersByTime(1000);
