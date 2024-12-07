@@ -1,6 +1,6 @@
 {
   "name": "0xalice-tgram-bot",
-  "version": "0.1.8",
+  "version": "0.1.6",
   "description": "Batched Telegram notification bot for 0xAlice",
   "type": "module",
   "main": "dist/index.js",
@@ -19,8 +19,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/21e8/telegram-batch-bot.git",
-    "directory": "packages/0xalice-tgram-bot"
+    "url": "git+https://github.com/21e8/telegram-batch-bot.git"
   },
   "keywords": [
     "telegram",
@@ -44,9 +43,5 @@
     "prettier": "^2.8.7",
     "sinon": "^19.0.2",
     "ts-jest": "^29.1.0"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "access": "public"
   }
 }
