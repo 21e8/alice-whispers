@@ -1,7 +1,10 @@
 import type { Message, MessageProcessor, TelegramConfig } from '../types';
+import { classifyError } from '../utils/errorClassifier';
 // import fetch from 'node-fetch';
 
-export function createTelegramProcessor(config: TelegramConfig): MessageProcessor {
+export function createTelegramProcessor(
+  config: TelegramConfig
+): MessageProcessor {
   const { botToken, chatId, development = false } = config;
   const baseUrl = `https://api.telegram.org/bot${botToken}`;
 
@@ -10,13 +13,40 @@ export function createTelegramProcessor(config: TelegramConfig): MessageProcesso
       console.log('[Telegram] Would send messages:', messages);
       return;
     }
-    
+
     if (!messages.length) {
       return;
     }
 
-    const text = messages
-      .map((msg) => `[${msg.level.toUpperCase()}] ${msg.text}`)
+    const formattedMessages = messages
+      .map((msg) => {
+        const prefix = msg.level.toUpperCase();
+        let text = `[${prefix}] ${msg.text}`;
+
+        if (msg.level === 'error' && msg.error) {
+          const classified = classifyError(msg.error);
+
+          // Skip throttled errors
+          if (classified.shouldThrottle) {
+            if (classified.nextAllowedTimestamp) {
+              const waitMinutes = Math.ceil(
+                (classified.nextAllowedTimestamp - Date.now()) / 60000
+              );
+              text += `\n[THROTTLED] Similar errors suppressed for ${waitMinutes} minutes`;
+            }
+            return null;
+          }
+
+          text += `\nCategory: ${classified.category}`;
+          text += `\nSeverity: ${classified.severity}`;
+          if (classified.details) {
+            text += `\nDetails: ${JSON.stringify(classified.details)}`;
+          }
+        }
+
+        return text;
+      })
+      .filter(Boolean) // Remove null entries from throttled errors
       .join('\n');
 
     const response = await fetch(`${baseUrl}/sendMessage`, {
@@ -24,7 +54,7 @@ export function createTelegramProcessor(config: TelegramConfig): MessageProcesso
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
-        text,
+        text: formattedMessages,
         parse_mode: 'HTML',
       }),
     });

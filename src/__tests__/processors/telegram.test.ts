@@ -1,5 +1,5 @@
-import { createTelegramProcessor } from '../processors/telegram';
-import type { Message, TelegramConfig } from '../types';
+import { createTelegramProcessor } from '../../processors/telegram';
+import type { Message, TelegramConfig } from '../../types';
 
 describe('TelegramProcessor', () => {
   const defaultConfig: TelegramConfig = {
@@ -8,9 +8,14 @@ describe('TelegramProcessor', () => {
   };
 
   beforeEach(() => {
-    // Mock the native fetch
-    (global.fetch as jest.Mock) = jest.fn(() => 
-      Promise.resolve({ ok: true })
+    // Updated mock implementation
+    (global.fetch as jest.Mock).mockImplementation(() => 
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: () => Promise.resolve({})
+      } as Response)
     );
   });
 
@@ -55,11 +60,14 @@ describe('TelegramProcessor', () => {
   });
 
   it('should throw error on failed API response', async () => {
+    // Updated mock implementation for failed response
     (global.fetch as jest.Mock).mockImplementationOnce(() => 
       Promise.resolve({ 
         ok: false, 
-        statusText: 'Bad Request' 
-      })
+        status: 400,
+        statusText: 'Bad Request',
+        json: () => Promise.resolve({})
+      } as Response)
     );
 
     const processor = createTelegramProcessor(defaultConfig);

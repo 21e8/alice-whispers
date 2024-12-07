@@ -4,6 +4,7 @@ export type Message = {
   chatId: string;
   text: string;
   level: NotificationLevel;
+  error?: Error | string;
 };
 
 export type BatcherConfig = {
