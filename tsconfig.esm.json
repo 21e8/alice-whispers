@@ -1,7 +1,17 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "declaration": false,
-    "declarationMap": false
-  }
+    "module": "ESNext",
+    "outDir": "./dist/esm",
+    "emitDeclarationOnly": false
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "jest.config.ts",
+    "jest.setup.ts"
+  ]
 } 

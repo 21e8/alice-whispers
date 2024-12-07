@@ -16,4 +16,4 @@ export type { EmailConfig } from './processors/email';
 
 export * from './processors/console';
 
-export * from './batcher';
+export { MessageBatcher } from './batcher';

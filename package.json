@@ -4,22 +4,18 @@
   "description": "Batched Telegram notification bot for 0xAlice",
   "type": "module",
   "main": "./dist/cjs/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "typings": "./dist/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "typings": "./dist/types/index.d.ts",
   "sideEffects": false,
   "engines": {
     "node": ">=14.0.0"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/cjs/index.js",
-      "default": "./dist/index.js"
-    },
-    "./types": {
-      "types": "./dist/types.d.ts"
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
     },
     "./package.json": "./package.json"
   },
@@ -38,7 +34,9 @@
   },
   "files": [
     "dist",
-    "dist/**/*",
+    "dist/cjs",
+    "dist/esm",
+    "dist/types",
     "README.md"
   ],
   "repository": {

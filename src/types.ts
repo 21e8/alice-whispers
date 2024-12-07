@@ -18,8 +18,17 @@ export interface TelegramConfig {
   development?: boolean;
 }
 
-export interface MessageProcessor {
+export type MessageProcessor = {
   processBatch(messages: Message[]): Promise<void>;
+};
+
+export interface IMessageBatcher {
+  info(message: string): void;
+  warning(message: string): void;
+  error(message: string): void;
+  queueMessage(message: string, level: NotificationLevel): void;
+  flush(): Promise<void>;
+  destroy(): void;
 }
 
 export type ProcessorOptions = {

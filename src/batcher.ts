@@ -3,9 +3,10 @@ import {
   type BatcherConfig,
   type NotificationLevel,
   type MessageProcessor,
+  type IMessageBatcher
 } from './types';
 
-export class MessageBatcher {
+export class MessageBatcher implements IMessageBatcher {
   private queues: Map<string, Message[]> = new Map();
   private timers: Map<string, NodeJS.Timeout> = new Map();
   private processInterval: NodeJS.Timeout | null = null;
