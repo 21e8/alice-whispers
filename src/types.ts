@@ -3,12 +3,12 @@ export type NotificationLevel = 'info' | 'warning' | 'error';
 export type Message = {
   chatId: string;
   text: string;
+  level: NotificationLevel;
 };
 
 export type BatcherConfig = {
   maxBatchSize: number;
   maxWaitMs: number;
-  processBatch: (messages: Message[]) => Promise<void> | void;
 };
 
 export interface TelegramConfig {
