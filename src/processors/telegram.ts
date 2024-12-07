@@ -1,5 +1,9 @@
 import type { Message, MessageProcessor, TelegramConfig } from '../types';
-import { classifyError, clearErrorTracking } from '../utils/errorClassifier';
+import {
+  classifyError,
+  clearErrorTracking,
+  formatClassifiedError,
+} from '../utils/errorClassifier';
 // import fetch from 'node-fetch';
 
 export function createTelegramProcessor(
@@ -23,26 +27,13 @@ export function createTelegramProcessor(
         .map((msg) => {
           const prefix = msg.level.toUpperCase();
           let text = `[${prefix}] ${msg.text}`;
-          
+
           if (msg.level === 'error' && msg.error) {
             const classified = classifyError(msg.error);
-            
-            if (classified.isAggregated) {
-              text += `\n[AGGREGATED] ${classified.occurrences} similar errors in ${classified.timeWindow}`;
-              text += `\nCategory: ${classified.category}`;
-              if (classified.details) {
-                text += `\nDetails: ${JSON.stringify(classified.details)}`;
-              }
-              return text;
-            }
-            
-            text += `\nCategory: ${classified.category}`;
-            text += `\nSeverity: ${classified.severity}`;
-            if (classified.details) {
-              text += `\nDetails: ${JSON.stringify(classified.details)}`;
-            }
+            text += '\n' + formatClassifiedError(classified);
+            return text;
           }
-          
+
           return text;
         })
         .filter(Boolean)

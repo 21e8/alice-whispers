@@ -1,35 +1,22 @@
-type ErrorPattern = {
-  pattern: RegExp;
-  category: string;
-  severity: 'low' | 'medium' | 'high';
-  aggregation?: {
-    windowMs: number;    // Time window to aggregate similar errors
-    countThreshold: number;  // Number of errors before aggregating
-  };
-};
-
-// Default patterns
-const DEFAULT_ERROR_PATTERNS: ErrorPattern[] = [
-  {
-    pattern: /duplicate key value violates unique constraint/i,
-    category: 'DATABASE_CONSTRAINT_VIOLATION',
-    severity: 'medium',
-    aggregation: {
-      windowMs: 60000,  // 1 minute
-      countThreshold: 5 // Aggregate after 5 similar errors
-    }
-  },
-  {
-    pattern: /connection refused|connection timeout/i,
-    category: 'CONNECTION_ERROR',
-    severity: 'high',
-  },
-  {
-    pattern: /invalid signature|unauthorized/i,
-    category: 'AUTH_ERROR',
-    severity: 'high',
-  },
+// Define tuple types for better type safety
+type ErrorPattern = readonly [
+  RegExp, // pattern
+  string, // category
+  'low' | 'medium' | 'high', // severity
+  [number, number]? // [windowMs, countThreshold] for aggregation
 ];
+
+// Default patterns as tuples
+const DEFAULT_ERROR_PATTERNS = [
+  [
+    /duplicate key value violates unique constraint/i,
+    'DATABASE_CONSTRAINT_VIOLATION',
+    'medium',
+    [60000, 5], // 1 minute window, 5 errors threshold
+  ],
+  [/connection refused|connection timeout/i, 'CONNECTION_ERROR', 'high'],
+  [/invalid signature|unauthorized/i, 'AUTH_ERROR', 'high'],
+] satisfies ErrorPattern[];
 
 // Store custom patterns
 let customPatterns: ErrorPattern[] = [];
@@ -47,86 +34,116 @@ function getPatterns(): ErrorPattern[] {
   return [...customPatterns, ...DEFAULT_ERROR_PATTERNS];
 }
 
-// Track error occurrences for aggregation
-const errorTracker = new Map<string, {
-  timestamps: number[];
-  count: number;
-  firstOccurrence: number;
-}>();
+// Track error occurrences using arrays
+const errorTracker = new Map<
+  string,
+  [
+    number[], // timestamps
+    number, // count
+    number // firstOccurrence
+  ]
+>();
 
-type ClassifiedError = {
-  originalMessage: string;
-  category: string;
-  severity: 'low' | 'medium' | 'high';
-  details?: Record<string, string>;
-  isAggregated: boolean;
-  occurrences?: number;
-  timeWindow?: string;
-};
+// Result tuple type
+type ClassifiedError = readonly [
+  string, // originalMessage
+  string, // category
+  'low' | 'medium' | 'high', // severity
+  string[], // details (key-value pairs flattened)
+  boolean, // isAggregated
+  number?, // occurrences
+  string? // timeWindow
+];
 
 export function classifyError(error: Error | string): ClassifiedError {
   const message = error instanceof Error ? error.message : error;
   const now = Date.now();
 
-  for (const { pattern, category, severity, aggregation } of getPatterns()) {
+  for (const [pattern, category, severity, aggregation] of getPatterns()) {
     if (pattern.test(message)) {
-      const details: Record<string, string> = {};
-      let trackerKey = `${category}`;
+      const details: string[] = [];
+      let trackerKey = category;
 
       if (category === 'DATABASE_CONSTRAINT_VIOLATION') {
         const constraint = message.match(/constraint "([^"]+)"/)?.[1];
         if (constraint) {
-          details.constraint = constraint;
+          details.push('constraint', constraint);
           trackerKey += `:${constraint}`;
         }
       }
 
       if (aggregation) {
-        const tracker = errorTracker.get(trackerKey) || {
-          timestamps: [],
-          count: 0,
-          firstOccurrence: now
-        };
+        const [windowMs, countThreshold] = aggregation;
+        const tracker = errorTracker.get(trackerKey) || [[], 0, now];
+        const [timestamps, count, firstOccurrence] = tracker;
 
         // Clean old timestamps
-        tracker.timestamps = tracker.timestamps.filter(
-          t => t > now - aggregation.windowMs
-        );
-        tracker.timestamps.push(now);
-        tracker.count++;
+        const validTimestamps = timestamps.filter((t) => t > now - windowMs);
+        validTimestamps.push(now);
 
-        errorTracker.set(trackerKey, tracker);
+        errorTracker.set(trackerKey, [
+          validTimestamps,
+          count + 1,
+          firstOccurrence,
+        ]);
 
-        if (tracker.timestamps.length >= aggregation.countThreshold) {
-          const timeWindow = Math.ceil((now - tracker.firstOccurrence) / 1000);
-          return {
-            originalMessage: message,
+        if (validTimestamps.length >= countThreshold) {
+          const timeWindow = Math.ceil((now - firstOccurrence) / 1000);
+          return [
+            message,
             category,
             severity,
             details,
-            isAggregated: true,
-            occurrences: tracker.count,
-            timeWindow: `${timeWindow}s`
-          };
+            true,
+            count + 1,
+            `${timeWindow}s`,
+          ];
         }
       }
 
-      return {
-        originalMessage: message,
-        category,
-        severity,
-        details,
-        isAggregated: false
-      };
+      return [message, category, severity, details, false];
     }
   }
 
-  return {
-    originalMessage: message,
-    category: 'UNKNOWN_ERROR',
-    severity: 'medium',
-    isAggregated: false
-  };
+  return [message, 'UNKNOWN_ERROR', 'medium', [], false];
+}
+
+// Helper to convert classified error to readable format
+type DetailMap = Record<string, string>;
+
+export function formatClassifiedError(error: ClassifiedError): string {
+  const [
+    message,
+    category,
+    severity,
+    details,
+    isAggregated,
+    occurrences,
+    timeWindow,
+  ] = error;
+
+  if (isAggregated) {
+    let formatted = `[AGGREGATED] ${occurrences} similar errors in ${timeWindow}`;
+    if (details.length > 0) {
+      const detailsObj = {} as DetailMap;
+      for (let i = 0; i < details.length; i += 2) {
+        detailsObj[details[i]] = details[i + 1];
+      }
+      formatted += `\nDetails: ${JSON.stringify(detailsObj)}`;
+    }
+    return formatted;
+  }
+
+  let formatted = `Message: ${message}\nCategory: ${category}\nSeverity: ${severity}`;
+  if (details.length > 0) {
+    const detailsObj = {} as DetailMap;
+    for (let i = 0; i < details.length; i += 2) {
+      detailsObj[details[i]] = details[i + 1];
+    }
+    formatted += `\nDetails: ${JSON.stringify(detailsObj)}`;
+  }
+
+  return formatted;
 }
 
 // Optional: Add method to clear error tracking
