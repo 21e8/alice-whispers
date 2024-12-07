@@ -2,18 +2,18 @@
 
 export * from './types';
 
-export * from './processors/telegram';
+export { TelegramProcessor } from './processors/telegram';
 export type { TelegramConfig } from './types';
 
-export * from './processors/slack';
+export { SlackProcessor } from './processors/slack';
 export type { SlackConfig } from './processors/slack';
 
-export * from './processors/discord';
+export { DiscordProcessor } from './processors/discord';
 export type { DiscordConfig } from './processors/discord';
 
-export * from './processors/email';
+export { EmailProcessor } from './processors/email';
 export type { EmailConfig } from './processors/email';
 
-export * from './processors/console';
+export { ConsoleProcessor } from './processors/console';
 
 export { MessageBatcher } from './batcher';
