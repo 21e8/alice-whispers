@@ -8,8 +8,14 @@ import {
 
 describe('ErrorClassifier', () => {
   beforeEach(() => {
+    // (console.log as jest.Mock).mockRestore();
+    jest.spyOn(console, 'log').mockImplementation();
     clearErrorTracking();
     resetErrorPatterns();
+  });
+
+  afterEach(() => {
+    (console.log as jest.Mock).mockRestore();
   });
 
   describe('error aggregation', () => {

@@ -8,7 +8,7 @@ describe('TelegramProcessor', () => {
   };
 
   beforeEach(() => {
-    // Updated mock implementation
+    // Mock fetch
     (global.fetch as jest.Mock).mockImplementation(() => 
       Promise.resolve({
         ok: true,
@@ -17,6 +17,8 @@ describe('TelegramProcessor', () => {
         json: () => Promise.resolve({})
       } as Response)
     );
+    // Silence console.log except for specific tests
+    jest.spyOn(console, 'log').mockImplementation();
   });
 
   afterEach(() => {
@@ -87,7 +89,10 @@ describe('TelegramProcessor', () => {
   });
 
   it('should log messages to console in development mode', async () => {
+    // Restore console.log for this test
+    (console.log as jest.Mock).mockRestore();
     const consoleSpy = jest.spyOn(console, 'log');
+    
     const processor = createTelegramProcessor({
       ...defaultConfig,
       development: true
