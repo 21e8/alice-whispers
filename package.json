@@ -4,6 +4,14 @@
   "description": "Batched Telegram notification bot for 0xAlice",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
@@ -17,13 +25,6 @@
     "dist/**/*",
     "README.md"
   ],
-  "type": "module",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
-    }
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/21e8/telegram-batch-bot.git"
