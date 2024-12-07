@@ -3,11 +3,13 @@ import {
   classifyError,
   clearErrorTracking,
   addErrorPatterns,
+  resetErrorPatterns,
 } from '../../utils/errorClassifier';
 
 describe('ErrorClassifier', () => {
   beforeEach(() => {
     clearErrorTracking();
+    resetErrorPatterns();
   });
 
   describe('error aggregation', () => {
@@ -246,6 +248,27 @@ describe('ErrorClassifier', () => {
       // Neither batch should show aggregation
       expect(batch1.text).not.toContain('[AGGREGATED]');
       expect(batch2.text).not.toContain('[AGGREGATED]');
+    });
+
+    it('should handle custom patterns with precedence', () => {
+      addErrorPatterns([
+        [/custom error/i, 'CUSTOM_ERROR', 'high']
+      ]);
+
+      const error = new Error('custom error occurred');
+      const [, category, severity] = classifyError(error);
+      
+      expect(category).toBe('CUSTOM_ERROR');
+      expect(severity).toBe('high');
+    });
+
+    it('should clear error tracking completely', () => {
+      const error = new Error('test error');
+      classifyError(error); // Add some tracking data
+      clearErrorTracking();
+      
+      const result = classifyError(error);
+      expect(result[4]).toBe(false); // isAggregated should be false
     });
   });
 

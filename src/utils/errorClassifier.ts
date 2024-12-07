@@ -59,7 +59,11 @@ export function classifyError(error: Error | string): ClassifiedError {
   const message = error instanceof Error ? error.message : error;
   const now = Date.now();
 
-  for (const [pattern, category, severity, aggregation] of getPatterns()) {
+  const patterns = getPatterns();
+  console.log('Patterns:', patterns);
+  console.log('Message:', message);
+
+  for (const [pattern, category, severity, aggregation] of patterns) {
     if (pattern.test(message)) {
       const details: string[] = [];
       let trackerKey = category;

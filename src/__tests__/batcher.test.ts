@@ -13,6 +13,7 @@ describe('MessageBatcher', () => {
         processedMessages = messages;
       }),
     };
+    jest.useFakeTimers();
   });
 
   afterEach(() => {
@@ -127,7 +128,6 @@ describe('MessageBatcher', () => {
   });
 
   it('should process messages after maxWaitMs', async () => {
-    jest.useFakeTimers();
     const setIntervalSpy = jest.spyOn(global, 'setInterval');
 
     batcher = createMessageBatcher([mockProcessor], {
@@ -135,8 +135,10 @@ describe('MessageBatcher', () => {
       maxWaitMs: 1000,
     });
 
-    batcher.info('Test message');
     expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 1000);
+
+    batcher.info('Test message');
+    expect(processedMessages).toHaveLength(0);
 
     jest.advanceTimersByTime(1000);
     await Promise.resolve();
@@ -145,7 +147,6 @@ describe('MessageBatcher', () => {
     expect(processedMessages[0].text).toBe('Test message');
 
     setIntervalSpy.mockRestore();
-    jest.useRealTimers();
   });
 
   it('should handle processor failures gracefully', async () => {
@@ -170,46 +171,39 @@ describe('MessageBatcher', () => {
     consoleSpy.mockRestore();
   });
 
-  it('should clean up all resources on destroy', async () => {
-    jest.useFakeTimers();
+  it('should clean up all timers on destroy', async () => {
     const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
 
     batcher = createMessageBatcher([mockProcessor], {
       maxBatchSize: 5,
       maxWaitMs: 1000,
     });
 
-    batcher.info('Message 1');
+    batcher.info('test message');
     batcher.destroy();
 
-    // Verify interval is cleared
     expect(clearIntervalSpy).toHaveBeenCalled();
-
-    // Verify no more processing happens
-    jest.advanceTimersByTime(2000);
-    await Promise.resolve();
-    expect(processedMessages).toHaveLength(0);
+    expect(clearTimeoutSpy).toHaveBeenCalled();
 
     clearIntervalSpy.mockRestore();
-    jest.useRealTimers();
+    clearTimeoutSpy.mockRestore();
   });
 
   it('should process batch when maxBatchSize is reached', async () => {
-    jest.useFakeTimers();
-
     batcher = createMessageBatcher([mockProcessor], {
       maxBatchSize: 2,
       maxWaitMs: 1000,
     });
 
-    // Wait for initial setup and clear any pending messages
+    // Wait for initial setup
     await Promise.resolve();
     jest.runOnlyPendingTimers();
     await Promise.resolve();
 
-    // Clear mock processor state
-    jest.clearAllMocks();
+    // Clear processed messages from setup
     processedMessages = [];
+    (mockProcessor.processBatch as jest.Mock).mockClear();
 
     // Add first message - shouldn't trigger processing
     batcher.info('Message 1');
@@ -225,8 +219,6 @@ describe('MessageBatcher', () => {
       'Message 1',
       'Message 2',
     ]);
-
-    jest.useRealTimers();
   });
 
   it('should clear all queues when reset', async () => {

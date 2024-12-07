@@ -7,12 +7,12 @@ import {
 } from './types';
 
 const globalQueues: Map<string, Message[]> = new Map();
+const timers: Map<string, NodeJS.Timeout> = new Map();
 
 export function createMessageBatcher(
   processors: MessageProcessor[],
   config: Required<BatcherConfig>
 ): MessageBatcher {
-  const timers: Map<string, NodeJS.Timeout> = new Map();
   let processInterval: NodeJS.Timeout | null = null;
 
   function startProcessing(): void {
@@ -44,7 +44,18 @@ export function createMessageBatcher(
     const queue = globalQueues.get(chatId) ?? [];
     queue.push({ chatId, text: message, level, error });
 
-    if (queue.length >= config.maxBatchSize) {
+    // Set a timeout to process this batch if maxBatchSize isn't reached
+    if (queue.length < config.maxBatchSize) {
+      const existingTimer = timers.get(chatId);
+      if (!existingTimer) {
+        const timer = setTimeout(() => {
+          processBatch(chatId);
+          timers.delete(chatId);
+        }, config.maxWaitMs);
+        timers.set(chatId, timer);
+      }
+    } else {
+      // Process immediately if maxBatchSize is reached
       processBatch(chatId);
     }
   }
@@ -52,6 +63,13 @@ export function createMessageBatcher(
   async function processBatch(chatId: string): Promise<void> {
     const queue = globalQueues.get(chatId);
     if (!queue?.length) return;
+
+    // Clear any pending timer for this batch
+    const timer = timers.get(chatId);
+    if (timer) {
+      clearTimeout(timer);
+      timers.delete(chatId);
+    }
 
     const batch = [...queue];
     globalQueues.set(chatId, []);
