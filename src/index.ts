@@ -1,5 +1,7 @@
+// import fetch from 'node-fetch';
+
 export { MessageBatcher } from './batcher';
-export { TelegramBatcher } from './telegram';
+export { TelegramProcessor as TelegramBatcher } from './telegram';
 export type {
   Message,
   BatcherConfig,

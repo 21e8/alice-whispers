@@ -59,9 +59,15 @@ export class MessageBatcher {
     const batch = [...queue];
     this.queues.set(chatId, []);
 
-    await Promise.all(
+    const results = await Promise.allSettled(
       this.processors.map((processor) => processor.processBatch(batch))
     );
+
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        console.error(`Processor ${index} failed:`, result.reason);
+      }
+    });
   }
 
   public async flush(): Promise<void> {

@@ -12,7 +12,7 @@ const LEVEL_EMOJIS: Record<NotificationLevel, string> = {
   error: '🚨',
 };
 
-export class TelegramBatcher implements MessageProcessor {
+export class TelegramProcessor implements MessageProcessor {
   private config: TelegramConfig;
 
   constructor(config: TelegramConfig) {
