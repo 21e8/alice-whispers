@@ -31,6 +31,10 @@ jobs:
           cache: 'yarn'
       - name: Install Yarn
         run: npm install -g yarn
+      - name: Setup npm package
+        run: |
+          echo "registry=https://registry.npmjs.org/" > .npmrc
+          npm pkg set name="0xalice-tgram-bot"
       - run: yarn ci
       - run: yarn test
       - run: yarn publish
@@ -53,6 +57,10 @@ jobs:
           cache: 'yarn'
       - name: Install Yarn
         run: npm install -g yarn
+      - name: Setup GitHub package
+        run: |
+          echo "registry=https://npm.pkg.github.com/" > .npmrc
+          npm pkg set name="@21e8/0xalice-tgram-bot"
       - run: yarn ci
       - run: yarn test
       - run: yarn publish
