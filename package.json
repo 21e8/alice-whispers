@@ -1,10 +1,11 @@
 {
   "name": "0xalice-tgram-bot",
-  "version": "0.2.6",
+  "version": "0.2.8",
   "description": "Batched Telegram notification bot for 0xAlice",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "engines": {
     "node": ">=14.0.0"
   },
@@ -12,12 +13,12 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "node build.mjs",
-    "watch": "node build.mjs --watch",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write 'src/**/*.ts'",
