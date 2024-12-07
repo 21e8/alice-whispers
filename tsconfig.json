@@ -13,6 +13,7 @@
     "removeComments": false,
     "isolatedModules": true,
     "allowJs": false,
+    "declaration": false,
     "resolveJsonModule": true,
     "composite": false
   },

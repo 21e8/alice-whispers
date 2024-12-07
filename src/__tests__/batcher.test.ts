@@ -13,17 +13,17 @@ describe('MessageBatcher', () => {
   it('should batch messages within the time window', async () => {
     const processBatchMock = jest.fn();
     const mockProcessor: MessageProcessor = {
-      processBatch: processBatchMock
+      processBatch: processBatchMock,
     };
 
-    const batcher = new MessageBatcher([mockProcessor], {
+    const batcher = MessageBatcher.create([mockProcessor], {
       maxBatchSize: 3,
-      maxWaitMs: 1000
+      maxWaitMs: 1000,
     });
 
     const messages: Message[] = [
       { chatId: 'default', text: 'message1', level: 'info' },
-      { chatId: 'default', text: 'message2', level: 'warning' }
+      { chatId: 'default', text: 'message2', level: 'warning' },
     ];
 
     for (const msg of messages) {

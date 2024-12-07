@@ -18,9 +18,9 @@ export interface TelegramConfig {
   development?: boolean;
 }
 
-export type MessageProcessor = {
+export interface MessageProcessor {
   processBatch(messages: Message[]): Promise<void>;
-};
+}
 
 export interface IMessageBatcher {
   info(message: string): void;

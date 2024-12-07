@@ -6,62 +6,57 @@ import {
   type IMessageBatcher
 } from './types';
 
-export class MessageBatcher implements IMessageBatcher {
-  private queues: Map<string, Message[]> = new Map();
-  private timers: Map<string, NodeJS.Timeout> = new Map();
-  private processInterval: NodeJS.Timeout | null = null;
-  private processors: MessageProcessor[];
-  protected config: BatcherConfig;
+export function createMessageBatcher(
+  processors: MessageProcessor[],
+  config: Required<BatcherConfig>
+): IMessageBatcher {
+  const queues: Map<string, Message[]> = new Map();
+  const timers: Map<string, NodeJS.Timeout> = new Map();
+  let processInterval: NodeJS.Timeout | null = null;
 
-  constructor(processors: MessageProcessor[], config: BatcherConfig) {
-    this.processors = processors;
-    this.config = config;
-    this.startProcessing();
-  }
-
-  private startProcessing(): void {
-    this.processInterval = setInterval(() => {
-      for (const chatId of this.queues.keys()) {
-        this.processBatch(chatId);
+  function startProcessing(): void {
+    processInterval = setInterval(() => {
+      for (const chatId of queues.keys()) {
+        processBatch(chatId);
       }
-    }, this.config.maxWaitMs);
+    }, config.maxWaitMs);
   }
 
-  public info(message: string): void {
-    this.queueMessage(message, 'info');
+  function info(message: string): void {
+    queueMessage(message, 'info');
   }
 
-  public warning(message: string): void {
-    this.queueMessage(message, 'warning');
+  function warning(message: string): void {
+    queueMessage(message, 'warning');
   }
 
-  public error(message: string): void {
-    this.queueMessage(message, 'error');
+  function error(message: string): void {
+    queueMessage(message, 'error');
   }
 
-  public queueMessage(message: string, level: NotificationLevel): void {
+  function queueMessage(message: string, level: NotificationLevel): void {
     const chatId = 'default';
-    if (!this.queues.has(chatId)) {
-      this.queues.set(chatId, []);
+    if (!queues.has(chatId)) {
+      queues.set(chatId, []);
     }
 
-    const queue = this.queues.get(chatId) ?? [];
+    const queue = queues.get(chatId) ?? [];
     queue.push({ chatId, text: message, level });
 
-    if (queue.length >= this.config.maxBatchSize) {
-      this.processBatch(chatId);
+    if (queue.length >= config.maxBatchSize) {
+      processBatch(chatId);
     }
   }
 
-  private async processBatch(chatId: string): Promise<void> {
-    const queue = this.queues.get(chatId);
+  async function processBatch(chatId: string): Promise<void> {
+    const queue = queues.get(chatId);
     if (!queue?.length) return;
 
     const batch = [...queue];
-    this.queues.set(chatId, []);
+    queues.set(chatId, []);
 
     const results = await Promise.allSettled(
-      this.processors.map((processor) => processor.processBatch(batch))
+      processors.map((processor) => processor.processBatch(batch))
     );
 
     results.forEach((result, index) => {
@@ -71,22 +66,45 @@ export class MessageBatcher implements IMessageBatcher {
     });
   }
 
-  public async flush(): Promise<void> {
-    for (const chatId of this.queues.keys()) {
-      await this.processBatch(chatId);
+  async function flush(): Promise<void> {
+    for (const chatId of queues.keys()) {
+      await processBatch(chatId);
     }
   }
 
-  public destroy(): void {
-    if (this.processInterval) {
-      clearInterval(this.processInterval);
-      this.processInterval = null;
+  function destroy(): void {
+    if (processInterval) {
+      clearInterval(processInterval);
+      processInterval = null;
     }
-    for (const timer of this.timers.values()) {
+    for (const timer of timers.values()) {
       clearTimeout(timer);
     }
-    this.timers.clear();
-    this.queues.clear();
+    timers.clear();
+    queues.clear();
+  }
+
+  // Start processing on creation
+  startProcessing();
+
+  // Return the public interface
+  return {
+    info,
+    warning,
+    error,
+    queueMessage,
+    flush,
+    destroy
+  };
+}
+
+// Add a class wrapper for compatibility
+export class MessageBatcher {
+  static create(
+    processors: MessageProcessor[],
+    config: Required<BatcherConfig>
+  ): IMessageBatcher {
+    return createMessageBatcher(processors, config);
   }
 }
 
