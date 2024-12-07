@@ -26,7 +26,7 @@ export interface MessageProcessor {
 export interface MessageBatcher {
   info(message: string): void;
   warning(message: string): void;
-  error(message: string): void;
+  error(message: string, error?: Error | string): void;
   queueMessage(message: string, level: NotificationLevel): void;
   flush(): Promise<void>;
   destroy(): void;

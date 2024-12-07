@@ -31,18 +31,18 @@ export function createMessageBatcher(
     queueMessage(message, 'warning');
   }
 
-  function error(message: string): void {
-    queueMessage(message, 'error');
+  function error(message: string, error?: Error | string): void {
+    queueMessage(message, 'error', error);
   }
 
-  function queueMessage(message: string, level: NotificationLevel): void {
+  function queueMessage(message: string, level: NotificationLevel, error?: Error | string): void {
     const chatId = 'default';
     if (!globalQueues.has(chatId)) {
       globalQueues.set(chatId, []);
     }
 
     const queue = globalQueues.get(chatId) ?? [];
-    queue.push({ chatId, text: message, level });
+    queue.push({ chatId, text: message, level, error });
 
     if (queue.length >= config.maxBatchSize) {
       processBatch(chatId);
