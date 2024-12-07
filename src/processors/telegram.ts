@@ -55,7 +55,7 @@ export function createTelegramProcessor(
       });
 
       if (!response.ok) {
-        throw new Error(`Telegram API error: ${response.statusText}`);
+        throw new Error(`Telegram API error: ${response.statusText || 'Unknown Error'}`);
       }
     } finally {
       // Clear error tracking after processing batch

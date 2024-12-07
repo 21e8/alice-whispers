@@ -1,5 +1,5 @@
 import { createTelegramProcessor } from '../../processors/telegram';
-import type { Message, TelegramConfig } from '../../types';
+import type { Message, TelegramConfig, NotificationLevel } from '../../types';
 
 describe('TelegramProcessor', () => {
   const defaultConfig: TelegramConfig = {
@@ -103,5 +103,21 @@ describe('TelegramProcessor', () => {
       messages
     );
     consoleSpy.mockRestore();
+  });
+
+  it('should handle API errors with missing status text', async () => {
+    (global.fetch as jest.Mock).mockImplementationOnce(() => 
+      Promise.resolve({ 
+        ok: false,
+        status: 400
+      } as Response)
+    );
+
+    const processor = createTelegramProcessor(defaultConfig);
+    const messages = [{ chatId: 'default', text: 'test', level: 'info' }] as Message[];
+
+    await expect(processor.processBatch(messages))
+      .rejects
+      .toThrow('Telegram API error: Unknown Error');
   });
 });
