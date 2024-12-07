@@ -26,17 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: 'https://registry.npmjs.org'
-          cache: 'yarn'
-      - name: Install Yarn
-        run: npm install -g yarn
-      - name: Setup npm auth
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          registry-url: https://registry.npmjs.org/
       - run: yarn ci
-      - name: Update package version
-        run: npm version $VERSION --no-git-tag-version
-      - name: Publish package
-        run: yarn publish --access public --non-interactive
+      - run: yarn publish --non-interactive
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}} 
+          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
