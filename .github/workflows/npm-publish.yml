@@ -1,13 +1,9 @@
-# This workflow will run tests using node and then publish a package to npm and GitHub Packages
+# This workflow will run tests using node and then publish a package to npm
 name: Node.js Package
 
 on:
   release:
     types: [created]
-
-permissions:
-  contents: read
-  packages: write
 
 jobs:
   build:
@@ -21,7 +17,6 @@ jobs:
       - name: Install Yarn
         run: npm install -g yarn
       - run: yarn ci
-      - run: yarn test
 
   publish-npm:
     needs: build
@@ -35,35 +30,7 @@ jobs:
           cache: 'yarn'
       - name: Install Yarn
         run: npm install -g yarn
-      - name: Setup npm package
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
-          npm pkg set name="0xalice-tgram-bot"
       - run: yarn ci
-      - run: yarn test
-      - run: yarn publish --non-interactive
+      - run: yarn publish
         env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
-
-  publish-gpr:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@21e8'
-      - name: Install Yarn
-        run: npm install -g yarn
-      - name: Setup GitHub package
-        run: |
-          echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" > .npmrc
-          echo "@21e8:registry=https://npm.pkg.github.com" >> .npmrc
-          npm pkg set name="@21e8/0xalice-tgram-bot"
-      - run: yarn ci
-      - run: yarn test
-      - run: yarn publish --non-interactive
-        env:
-          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}} 

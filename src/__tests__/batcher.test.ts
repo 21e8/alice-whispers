@@ -67,7 +67,7 @@ describe('MessageBatcher', () => {
 
   it('should handle empty queue gracefully', async () => {
     const processBatchMock = sinon.spy();
-    const batcher = new MessageBatcher({
+    new MessageBatcher({
       maxBatchSize: 3,
       maxWaitMs: 1000,
       processBatch: processBatchMock,
