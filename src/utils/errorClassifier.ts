@@ -1,6 +1,6 @@
 // Define tuple types for better type safety
 type ErrorPattern = readonly [
-  RegExp, // pattern
+  RegExp | ((message: string) => boolean) | Promise<boolean>, // pattern can be RegExp, function, or Promise
   string, // category
   'low' | 'medium' | 'high', // severity
   [number, number]? // [windowMs, countThreshold] for aggregation
@@ -55,7 +55,9 @@ type ClassifiedError = readonly [
   string? // timeWindow
 ];
 
-export function classifyError(error: Error | string): ClassifiedError {
+export async function classifyError(
+  error: Error | string
+): Promise<ClassifiedError> {
   const message = error instanceof Error ? error.message : error;
   const now = Date.now();
 
@@ -64,7 +66,16 @@ export function classifyError(error: Error | string): ClassifiedError {
   console.log('Message:', message);
 
   for (const [pattern, category, severity, aggregation] of patterns) {
-    if (pattern.test(message)) {
+    let matches = false;
+    if (pattern instanceof RegExp) {
+      matches = pattern.test(message);
+    } else if (pattern instanceof Promise) {
+      matches = await pattern;
+    } else {
+      matches = pattern(message);
+    }
+
+    if (matches) {
       const details: string[] = [];
       let trackerKey = category;
 

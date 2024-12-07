@@ -18,14 +18,14 @@ describe('ErrorClassifier', () => {
   });
 
   describe('error aggregation', () => {
-    it('should aggregate similar database errors after threshold', () => {
+    it('should aggregate similar database errors after threshold', async () => {
       const dbError = new Error(
         'duplicate key value violates unique constraint "users_pkey"'
       );
 
       // First 4 errors should not be aggregated
       for (let i = 0; i < 4; i++) {
-        const [, category, , , isAggregated] = classifyError(dbError);
+        const [, category, , , isAggregated] = await classifyError(dbError);
         expect(isAggregated).toBe(false);
         expect(category).toBe('DATABASE_CONSTRAINT_VIOLATION');
       }
@@ -39,14 +39,14 @@ describe('ErrorClassifier', () => {
         isAggregated,
         occurrences,
         timeWindow,
-      ] = classifyError(dbError);
+      ] = await classifyError(dbError);
       expect(isAggregated).toBe(true);
       expect(occurrences).toBe(5);
       expect(timeWindow).toBeDefined();
       expect(details).toEqual(['constraint', 'users_pkey']);
     });
 
-    it('should track different constraint violations separately', () => {
+    it('should track different constraint violations separately', async () => {
       const error1 = new Error(
         'duplicate key value violates unique constraint "users_pkey"'
       );
@@ -56,8 +56,8 @@ describe('ErrorClassifier', () => {
 
       // Add 5 of each error
       for (let i = 0; i < 5; i++) {
-        const [, , , , isAggregated1] = classifyError(error1);
-        const [, , , , isAggregated2] = classifyError(error2);
+        const [, , , , isAggregated1] = await classifyError(error1);
+        const [, , , , isAggregated2] = await classifyError(error2);
 
         // Both should aggregate independently
         expect(isAggregated1).toBe(i === 4);
@@ -65,7 +65,7 @@ describe('ErrorClassifier', () => {
       }
     });
 
-    it('should clean old errors from aggregation window', () => {
+    it('should clean old errors from aggregation window', async () => {
       const dbError = new Error(
         'duplicate key value violates unique constraint'
       );
@@ -74,18 +74,18 @@ describe('ErrorClassifier', () => {
 
       // Add 3 errors
       for (let i = 0; i < 3; i++) {
-        classifyError(dbError);
+        await classifyError(dbError);
       }
 
       // Move time forward past window
       jest.spyOn(Date, 'now').mockImplementation(() => now + 65000); // 65 seconds
 
       // Should not be aggregated as old errors are cleaned
-      const [, , , , isAggregated] = classifyError(dbError);
+      const [, , , , isAggregated] = await classifyError(dbError);
       expect(isAggregated).toBe(false);
     });
 
-    it('should handle custom error patterns with aggregation', () => {
+    it('should handle custom error patterns with aggregation', async () => {
       addErrorPatterns([
         [
           /custom error/i,
@@ -99,20 +99,20 @@ describe('ErrorClassifier', () => {
 
       // First 2 errors should not be aggregated
       for (let i = 0; i < 2; i++) {
-        const [, category, , , isAggregated] = classifyError(customError);
+        const [, category, , , isAggregated] = await classifyError(customError);
         expect(isAggregated).toBe(false);
         expect(category).toBe('CUSTOM_ERROR');
       }
 
       // 3rd error should trigger aggregation
       const [, , , , isAggregated, occurrences, timeWindow] =
-        classifyError(customError);
+        await classifyError(customError);
       expect(isAggregated).toBe(true);
       expect(occurrences).toBe(3);
       expect(timeWindow).toBeDefined();
     });
 
-    it('should show correct time window in aggregated errors', () => {
+    it('should show correct time window in aggregated errors', async () => {
       const dbError = new Error(
         'duplicate key value violates unique constraint'
       );
@@ -128,12 +128,12 @@ describe('ErrorClassifier', () => {
       jest.spyOn(Date, 'now').mockImplementation(() => now + 30000); // +30s
       classifyError(dbError);
 
-      const [, , , , isAggregated, , timeWindow] = classifyError(dbError);
+      const [, , , , isAggregated, , timeWindow] = await classifyError(dbError);
       expect(isAggregated).toBe(true);
       expect(timeWindow).toBe('30s');
     });
 
-    it('should aggregate messages sent within milliseconds', () => {
+    it('should aggregate messages sent within milliseconds', async () => {
       const dbError = new Error(
         'duplicate key value violates unique constraint "users_pkey"'
       );
@@ -149,13 +149,14 @@ describe('ErrorClassifier', () => {
 
       // First 4 should not be aggregated
       for (let i = 0; i < 4; i++) {
-        const [, category, , , isAggregated] = results[i];
+        const [, category, , , isAggregated] = await results[i];
         expect(isAggregated).toBe(false);
         expect(category).toBe('DATABASE_CONSTRAINT_VIOLATION');
       }
 
       // 5th message should show aggregation
-      const [, , , details, isAggregated, occurrences, timeWindow] = results[4];
+      const [, , , details, isAggregated, occurrences, timeWindow] =
+        await results[4];
       expect(isAggregated).toBe(true);
       expect(occurrences).toBe(5);
       expect(timeWindow).toBe('0s');
@@ -255,24 +256,24 @@ describe('ErrorClassifier', () => {
       expect(batch2.text).not.toContain('[AGGREGATED]');
     });
 
-    it('should handle custom patterns with precedence', () => {
+    it('should handle custom patterns with precedence', async () => {
       addErrorPatterns([
         [/custom error/i, 'CUSTOM_ERROR', 'high']
       ]);
 
       const error = new Error('custom error occurred');
-      const [, category, severity] = classifyError(error);
+      const [, category, severity] = await classifyError(error);
       
       expect(category).toBe('CUSTOM_ERROR');
       expect(severity).toBe('high');
     });
 
-    it('should clear error tracking completely', () => {
+    it('should clear error tracking completely', async () => {
       const error = new Error('test error');
-      classifyError(error); // Add some tracking data
+      await classifyError(error); // Add some tracking data
       clearErrorTracking();
       
-      const result = classifyError(error);
+      const result = await classifyError(error);
       expect(result[4]).toBe(false); // isAggregated should be false
     });
   });

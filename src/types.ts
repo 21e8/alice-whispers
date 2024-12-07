@@ -20,7 +20,7 @@ export interface TelegramConfig {
 }
 
 export interface MessageProcessor {
-  processBatch(messages: Message[]): Promise<void>;
+  processBatch(messages: Message[]): void | Promise<void>;
   processBatchSync?(messages: Message[]): void;
 }
 
@@ -29,7 +29,7 @@ export interface MessageBatcher {
   warning(message: string): void;
   error(message: string, error?: Error | string): void;
   queueMessage(message: string, level: NotificationLevel): void;
-  processBatch(chatId: string): Promise<void>;
+  processBatch(chatId: string): void;
   flush(): Promise<void>;
   flushSync(): void;
   destroy(): void;

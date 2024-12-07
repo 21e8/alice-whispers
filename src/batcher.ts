@@ -102,7 +102,7 @@ export function createMessageBatcher(
         try {
           // Handle both sync and async calls
           const result = processor.processBatch([item]);
-          if (result instanceof Promise) {
+          if (result && typeof result.then === 'function') {
             result.catch((error) => {
               console.error(`Processor failed:`, error);
             });

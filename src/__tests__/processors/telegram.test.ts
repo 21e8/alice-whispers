@@ -44,7 +44,7 @@ describe('TelegramProcessor', () => {
     const body = JSON.parse(options.body);
     expect(body).toEqual({
       chat_id: defaultConfig.chatId,
-      text: '[INFO] info message\n[WARNING] warning message\n[ERROR] error message',
+      text: 'ℹ️ [INFO] info message\n⚠️ [WARNING] warning message\n🚨 [ERROR] error message',
       parse_mode: 'HTML',
     });
   });
@@ -70,7 +70,11 @@ describe('TelegramProcessor', () => {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
-        json: () => Promise.resolve({}),
+        json: () => Promise.resolve({
+          ok: false,
+          error_code: 400,
+          description: 'Bad Request: message text is empty'
+        }),
       } as Response)
     );
 
@@ -80,7 +84,7 @@ describe('TelegramProcessor', () => {
     ];
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
-      'Telegram API error: Bad Request'
+      'Telegram API error: Bad Request - Bad Request: message text is empty'
     );
   });
 
@@ -117,6 +121,11 @@ describe('TelegramProcessor', () => {
       Promise.resolve({
         ok: false,
         status: 400,
+        json: () => Promise.resolve({
+          ok: false,
+          error_code: 400,
+          description: 'Unknown Error'
+        }),
       } as Response)
     );
 
@@ -126,7 +135,7 @@ describe('TelegramProcessor', () => {
     ] as Message[];
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
-      'Telegram API error: Unknown Error'
+      'Telegram API error: Unknown Error - Unknown Error'
     );
   });
 
@@ -157,7 +166,7 @@ describe('TelegramProcessor', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [, options] = (global.fetch as jest.Mock).mock.calls[0];
     const body = JSON.parse(options.body);
-    expect(body.text).toContain('[ERROR] Error occurred');
+    expect(body.text).toContain('🚨 [ERROR] Error occurred');
     expect(body.text).toContain('Test error');
   });
 });
