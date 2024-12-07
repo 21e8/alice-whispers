@@ -1,4 +1,4 @@
-import { MessageBatcher } from '../batcher';
+import { createMessageBatcher } from '../batcher';
 import type { Message, MessageProcessor } from '../types';
 
 describe('MessageBatcher', () => {
@@ -16,7 +16,7 @@ describe('MessageBatcher', () => {
       processBatch: processBatchMock,
     };
 
-    const batcher = MessageBatcher.create([mockProcessor], {
+    const batcher = createMessageBatcher([mockProcessor], {
       maxBatchSize: 3,
       maxWaitMs: 1000,
     });

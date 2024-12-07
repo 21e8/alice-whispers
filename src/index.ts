@@ -16,7 +16,7 @@ export type { EmailConfig } from './processors/email';
 
 export { ConsoleProcessor } from './processors/console';
 
-export { createMessageBatcher, MessageBatcher } from './batcher';
+export { createMessageBatcher } from './batcher';
 export type {
   Message,
   BatcherConfig,

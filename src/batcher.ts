@@ -98,13 +98,4 @@ export function createMessageBatcher(
   };
 }
 
-// Add a class wrapper for compatibility
-export class MessageBatcher {
-  static create(
-    processors: MessageProcessor[],
-    config: Required<BatcherConfig>
-  ): IMessageBatcher {
-    return createMessageBatcher(processors, config);
-  }
-}
 
