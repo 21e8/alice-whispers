@@ -33,11 +33,11 @@ jobs:
         run: npm install -g yarn
       - name: Setup npm package
         run: |
-          echo "registry=https://registry.npmjs.org/" > .npmrc
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           npm pkg set name="0xalice-tgram-bot"
       - run: yarn ci
       - run: yarn test
-      - run: yarn publish
+      - run: yarn publish --non-interactive
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
@@ -59,10 +59,11 @@ jobs:
         run: npm install -g yarn
       - name: Setup GitHub package
         run: |
-          echo "registry=https://npm.pkg.github.com/" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          echo "@21e8:registry=https://npm.pkg.github.com" >> .npmrc
           npm pkg set name="@21e8/0xalice-tgram-bot"
       - run: yarn ci
       - run: yarn test
-      - run: yarn publish
+      - run: yarn publish --non-interactive
         env:
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
