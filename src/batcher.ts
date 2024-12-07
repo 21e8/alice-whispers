@@ -2,18 +2,18 @@ import {
   type Message,
   type BatcherConfig,
   type NotificationLevel,
+  type MessageProcessor,
 } from './types';
-import { TelegramBatcher } from './telegram';
 
 export class MessageBatcher {
   private queues: Map<string, Message[]> = new Map();
   private timers: Map<string, NodeJS.Timeout> = new Map();
   private processInterval: NodeJS.Timeout | null = null;
-  private telegram: TelegramBatcher;
+  private processors: MessageProcessor[];
   protected config: BatcherConfig;
 
-  constructor(telegram: TelegramBatcher, config: BatcherConfig) {
-    this.telegram = telegram;
+  constructor(processors: MessageProcessor[], config: BatcherConfig) {
+    this.processors = processors;
     this.config = config;
     this.startProcessing();
   }
@@ -59,7 +59,9 @@ export class MessageBatcher {
     const batch = [...queue];
     this.queues.set(chatId, []);
 
-    await this.telegram.processBatch(batch);
+    await Promise.all(
+      this.processors.map((processor) => processor.processBatch(batch))
+    );
   }
 
   public destroy(): void {

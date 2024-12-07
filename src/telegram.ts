@@ -1,12 +1,17 @@
-import type { NotificationLevel, TelegramConfig, Message } from './types';
+import type {
+  NotificationLevel,
+  TelegramConfig,
+  Message,
+  MessageProcessor,
+} from './types';
 
 const LEVEL_EMOJIS: Record<NotificationLevel, string> = {
   info: 'ℹ️',
   warning: '⚠️',
-  error: '🚨'
+  error: '🚨',
 };
 
-export class TelegramBatcher {
+export class TelegramBatcher implements MessageProcessor {
   private config: TelegramConfig;
 
   constructor(config: TelegramConfig) {
@@ -19,14 +24,14 @@ export class TelegramBatcher {
       return;
     }
 
-    const formattedMessages = messages.map(msg => {
+    const formattedMessages = messages.map((msg) => {
       const emoji = LEVEL_EMOJIS[msg.level];
       return `${emoji} ${msg.text}`;
     });
 
     const text = formattedMessages.join('\n\n');
     const url = `https://api.telegram.org/bot${this.config.botToken}/sendMessage`;
-    
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -48,4 +53,4 @@ export class TelegramBatcher {
       console.error('Error sending Telegram message:', error);
     }
   }
-} 
+}

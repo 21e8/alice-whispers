@@ -1,23 +1,19 @@
 import { MessageBatcher } from '../batcher';
-import { TelegramBatcher } from '../telegram';
+// import { TelegramBatcher } from '../telegram';
 import sinon from 'sinon';
-import { type Message } from '../types';
+import { type Message, type MessageProcessor } from '../types';
 
 describe('MessageBatcher', () => {
   let clock: sinon.SinonFakeTimers;
-  let mockTelegram: TelegramBatcher;
+  let mockProcessor: MessageProcessor;
   let processBatchSpy: sinon.SinonSpy;
   
   beforeEach(() => {
     clock = sinon.useFakeTimers();
     processBatchSpy = sinon.spy();
-    mockTelegram = new TelegramBatcher({
-      botToken: 'test-token',
-      chatId: 'test-chat',
-      development: true
-    });
-    // Override the processBatch method with our spy
-    mockTelegram.processBatch = processBatchSpy;
+    mockProcessor = {
+      processBatch: processBatchSpy
+    };
   });
 
   afterEach(() => {
@@ -25,7 +21,7 @@ describe('MessageBatcher', () => {
   });
 
   it('should batch messages within the time window', async () => {
-    const batcher = new MessageBatcher(mockTelegram, {
+    const batcher = new MessageBatcher([mockProcessor], {
       maxBatchSize: 3,
       maxWaitMs: 1000
     });
@@ -50,7 +46,7 @@ describe('MessageBatcher', () => {
   });
 
   it('should process batch when max size is reached', async () => {
-    const batcher = new MessageBatcher(mockTelegram, {
+    const batcher = new MessageBatcher([mockProcessor], {
       maxBatchSize: 2,
       maxWaitMs: 1000
     });
@@ -71,7 +67,7 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle empty queue gracefully', async () => {
-    new MessageBatcher(mockTelegram, {
+    new MessageBatcher([mockProcessor], {
       maxBatchSize: 3,
       maxWaitMs: 1000
     });
@@ -84,7 +80,7 @@ describe('MessageBatcher', () => {
   });
 
   it('should batch all messages together', async () => {
-    const batcher = new MessageBatcher(mockTelegram, {
+    const batcher = new MessageBatcher([mockProcessor], {
       maxBatchSize: 3,
       maxWaitMs: 1000
     });
@@ -108,8 +104,35 @@ describe('MessageBatcher', () => {
     sinon.assert.calledWith(processBatchSpy, messages);
   });
 
+  it('should send to multiple processors', async () => {
+    const mockProcessor2 = {
+      processBatch: sinon.spy()
+    };
+
+    const batcher = new MessageBatcher([mockProcessor, mockProcessor2], {
+      maxBatchSize: 2,
+      maxWaitMs: 1000
+    });
+
+    const messages: Message[] = [
+      { chatId: 'default', text: 'test1', level: 'info' },
+      { chatId: 'default', text: 'test2', level: 'warning' },
+    ];
+
+    // Add messages to queue
+    for (const msg of messages) {
+      batcher.queueMessage(msg.text, msg.level);
+    }
+
+    // Verify both processors received the messages
+    sinon.assert.calledOnce(processBatchSpy);
+    sinon.assert.calledOnce(mockProcessor2.processBatch);
+    sinon.assert.calledWith(processBatchSpy, messages);
+    sinon.assert.calledWith(mockProcessor2.processBatch, messages);
+  });
+
   it('should cleanup properly on destroy', () => {
-    const batcher = new MessageBatcher(mockTelegram, {
+    const batcher = new MessageBatcher([mockProcessor], {
       maxBatchSize: 3,
       maxWaitMs: 1000
     });

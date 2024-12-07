@@ -17,3 +17,7 @@ export interface TelegramConfig {
   batchDelay?: number; // in ms, default 60000
   development?: boolean;
 }
+
+export interface MessageProcessor {
+  processBatch(messages: Message[]): Promise<void>;
+}
