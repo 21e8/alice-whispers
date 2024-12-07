@@ -1,6 +1,6 @@
 {
   "name": "0xalice-tgram-bot",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Batched Telegram notification bot for 0xAlice",
   "type": "module",
   "main": "dist/index.js",
