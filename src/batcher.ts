@@ -38,22 +38,14 @@ export class MessageBatcher {
     this.queueMessage(message, 'error');
   }
 
-  protected queueMessage(message: string, level: NotificationLevel): void {
-    this.addMessage({
-      chatId: 'default',
-      text: message,
-      level,
-    });
-  }
-
-  public addMessage(message: Message): void {
-    const { chatId } = message;
+  public queueMessage(message: string, level: NotificationLevel): void {
+    const chatId = 'default';
     if (!this.queues.has(chatId)) {
       this.queues.set(chatId, []);
     }
 
     const queue = this.queues.get(chatId) ?? [];
-    queue.push(message);
+    queue.push({ chatId, text: message, level });
 
     if (queue.length >= this.config.maxBatchSize) {
       this.processBatch(chatId);

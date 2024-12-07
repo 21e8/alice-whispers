@@ -31,14 +31,14 @@ describe('MessageBatcher', () => {
     });
 
     const messages: Message[] = [
-      { chatId: '123', text: 'test1', level: 'info' },
-      { chatId: '123', text: 'test2', level: 'warning' },
-      { chatId: '123', text: 'test3', level: 'error' },
+      { chatId: 'default', text: 'test1', level: 'info' },
+      { chatId: 'default', text: 'test2', level: 'warning' },
+      { chatId: 'default', text: 'test3', level: 'error' },
     ];
 
     // Add messages to queue
     for (const msg of messages) {
-      batcher.addMessage(msg);
+      batcher.queueMessage(msg.text, msg.level);
     }
 
     // Fast forward time
@@ -56,13 +56,13 @@ describe('MessageBatcher', () => {
     });
 
     const messages: Message[] = [
-      { chatId: '123', text: 'test1', level: 'info' },
-      { chatId: '123', text: 'test2', level: 'warning' },
+      { chatId: 'default', text: 'test1', level: 'info' },
+      { chatId: 'default', text: 'test2', level: 'warning' },
     ];
 
     // Add messages to queue
     for (const msg of messages) {
-      batcher.addMessage(msg);
+      batcher.queueMessage(msg.text, msg.level);
     }
 
     // Verify batch was processed immediately
@@ -83,36 +83,29 @@ describe('MessageBatcher', () => {
     sinon.assert.notCalled(processBatchSpy);
   });
 
-  it('should process messages for different chat IDs separately', async () => {
+  it('should batch all messages together', async () => {
     const batcher = new MessageBatcher(mockTelegram, {
       maxBatchSize: 3,
       maxWaitMs: 1000
     });
 
     const messages: Message[] = [
-      { chatId: '123', text: 'test1', level: 'info' },
-      { chatId: '456', text: 'test2', level: 'warning' },
-      { chatId: '123', text: 'test3', level: 'error' },
+      { chatId: 'default', text: 'test1', level: 'info' },
+      { chatId: 'default', text: 'test2', level: 'warning' },
+      { chatId: 'default', text: 'test3', level: 'error' },
     ];
 
     // Add messages to queue
     for (const msg of messages) {
-      batcher.addMessage(msg);
+      batcher.queueMessage(msg.text, msg.level);
     }
 
     // Fast forward time
     await clock.tickAsync(1000);
 
-    // Verify batches were processed by chat ID
-    sinon.assert.calledTwice(processBatchSpy);
-    const calls = processBatchSpy.getCalls();
-    expect(calls[0].args[0]).toEqual([
-      { chatId: '123', text: 'test1', level: 'info' },
-      { chatId: '123', text: 'test3', level: 'error' },
-    ]);
-    expect(calls[1].args[0]).toEqual([
-      { chatId: '456', text: 'test2', level: 'warning' },
-    ]);
+    // Verify all messages were batched together
+    sinon.assert.calledOnce(processBatchSpy);
+    sinon.assert.calledWith(processBatchSpy, messages);
   });
 
   it('should cleanup properly on destroy', () => {
@@ -121,7 +114,7 @@ describe('MessageBatcher', () => {
       maxWaitMs: 1000
     });
 
-    batcher.addMessage({ chatId: '123', text: 'test', level: 'info' });
+    batcher.queueMessage('test', 'info');
     batcher.destroy();
 
     // Fast forward time
