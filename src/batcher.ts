@@ -1,17 +1,25 @@
 import { NotificationLevel, QueuedMessage, TelegramConfig } from './types';
 import { EMOJI_MAP, sendTelegramMessage } from './utils';
 
+let instance: MessageBatcher | null = null;
+
 export class MessageBatcher {
   private messageQueue: QueuedMessage[] = [];
   private batchTimeout: ReturnType<typeof setTimeout> | null = null;
-  private readonly config: TelegramConfig;
+  private readonly config!: TelegramConfig;
 
   constructor(config: TelegramConfig) {
+    if (instance) {
+      return instance;
+    }
+    
     this.config = {
       batchDelay: 60000,
       development: false,
       ...config,
     };
+
+    instance = this;
   }
 
   queueMessage(message: string, level: NotificationLevel): void {
