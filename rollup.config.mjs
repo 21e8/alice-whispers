@@ -21,7 +21,11 @@ const config = [
     plugins: [
       resolve(),
       commonjs(),
-      typescript({ tsconfig: './tsconfig.json' }),
+      typescript({
+        tsconfig: './tsconfig.json',
+        declaration: false,
+        declarationDir: null,
+      }),
     ],
     external: ['node-fetch', 'nodemailer'],
   },
@@ -35,4 +39,4 @@ const config = [
   },
 ];
 
-export default config; 
+export default config;
