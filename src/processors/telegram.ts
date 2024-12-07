@@ -9,7 +9,6 @@ import {
   clearErrorTracking,
   formatClassifiedError,
 } from '../utils/errorClassifier';
-// import fetch from 'node-fetch';
 
 const EMOJIS: Record<NotificationLevel, string> = {
   error: '🚨',
@@ -76,7 +75,9 @@ export function createTelegramProcessor(
         console.error('[Telegram] API Response:', data);
         const errorData = data as TelegramApiError;
         throw new Error(
-          `Telegram API error: ${response.statusText || 'Unknown Error'} - ${errorData.description || JSON.stringify(data)}`
+          `Telegram API error: ${response.statusText || 'Unknown Error'} - ${
+            errorData.description || JSON.stringify(data)
+          }`
         );
       }
     } catch (error) {

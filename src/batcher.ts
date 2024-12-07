@@ -100,10 +100,11 @@ export function createMessageBatcher(
     for (const item of batch) {
       for (const processor of processors) {
         try {
-          // Handle both sync and async calls
-          const result = processor.processBatch([item]);
-          if (result && typeof result.then === 'function') {
-            result.catch((error) => {
+          if (processor.processBatchSync) {
+            processor.processBatchSync([item]);
+          } else {
+            // Handle async processBatch by ignoring the Promise
+            (processor.processBatch([item]) as Promise<void>).catch((error) => {
               console.error(`Processor failed:`, error);
             });
           }
