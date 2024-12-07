@@ -22,7 +22,7 @@ export interface MessageProcessor {
   processBatch(messages: Message[]): Promise<void>;
 }
 
-export interface IMessageBatcher {
+export interface MessageBatcher {
   info(message: string): void;
   warning(message: string): void;
   error(message: string): void;

@@ -20,5 +20,5 @@ export type {
   BatcherConfig,
   NotificationLevel,
   MessageProcessor,
-  IMessageBatcher,
+  MessageBatcher as IMessageBatcher,
 } from './types';

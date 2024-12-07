@@ -3,13 +3,19 @@ import {
   type BatcherConfig,
   type NotificationLevel,
   type MessageProcessor,
-  type IMessageBatcher
+  type MessageBatcher,
 } from './types';
+
+let instance: MessageBatcher | null = null;
 
 export function createMessageBatcher(
   processors: MessageProcessor[],
   config: Required<BatcherConfig>
-): IMessageBatcher {
+): MessageBatcher {
+  if (instance) {
+    return instance;
+  }
+
   const queues: Map<string, Message[]> = new Map();
   const timers: Map<string, NodeJS.Timeout> = new Map();
   let processInterval: NodeJS.Timeout | null = null;
@@ -84,18 +90,26 @@ export function createMessageBatcher(
     queues.clear();
   }
 
-  // Start processing on creation
-  startProcessing();
-
-  // Return the public interface
-  return {
+  // Create the instance
+  instance = {
     info,
     warning,
     error,
     queueMessage,
     flush,
-    destroy
+    destroy,
   };
+
+  // Start processing on creation
+  startProcessing();
+
+  return instance;
 }
 
-
+// Add a way to reset the singleton (mainly for testing)
+export function resetBatcher(): void {
+  if (instance) {
+    instance.destroy();
+    instance = null;
+  }
+}
