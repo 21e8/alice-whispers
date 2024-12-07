@@ -15,8 +15,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
-      - run: npm test
+          cache: 'yarn'
+      - name: Install Yarn
+        run: npm install -g yarn
+      - run: yarn ci
+      - run: yarn test
 
   publish-gpr:
     needs: build
@@ -30,7 +33,10 @@ jobs:
         with:
           node-version: 20
           registry-url: https://npm.pkg.github.com/
-      - run: npm ci
-      - run: npm publish
+          cache: 'yarn'
+      - name: Install Yarn
+        run: npm install -g yarn
+      - run: yarn ci
+      - run: yarn publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
