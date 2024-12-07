@@ -22,11 +22,12 @@
     "clean": "rm -rf dist",
     "build": "yarn clean && rollup -c",
     "check-types": "tsc --noEmit",
-    "test": "jest",
+    "test": "jest && yarn test-timeout",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write 'src/**/*.ts'",
     "prepublishOnly": "yarn build",
-    "ci": "yarn install --frozen-lockfile && yarn build"
+    "ci": "yarn install --frozen-lockfile && yarn build",
+    "test-timeout": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/test-timeout.ts"
   },
   "files": [
     "dist",

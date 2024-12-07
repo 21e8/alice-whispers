@@ -6,12 +6,6 @@ import {
 } from '../batcher';
 import type { Message, MessageBatcher, MessageProcessor } from '../types';
 
-// // Import the internal queue for testing
-// import { globalQueues } from '../batcher';
-
-// // Import internal timers map for testing
-// import { timers } from '../batcher';
-
 describe('MessageBatcher', () => {
   let mockProcessor: MessageProcessor;
   let processedMessages: Message[];

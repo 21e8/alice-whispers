@@ -4,17 +4,17 @@ import type { Message, TelegramConfig } from '../../types';
 describe('TelegramProcessor', () => {
   const defaultConfig: TelegramConfig = {
     botToken: 'test-token',
-    chatId: 'test-chat-id'
+    chatId: 'test-chat-id',
   };
 
   beforeEach(() => {
     // Mock fetch
-    (global.fetch as jest.Mock).mockImplementation(() => 
+    (global.fetch as jest.Mock).mockImplementation(() =>
       Promise.resolve({
         ok: true,
         status: 200,
         statusText: 'OK',
-        json: () => Promise.resolve({})
+        json: () => Promise.resolve({}),
       } as Response)
     );
     // Silence console.log except for specific tests
@@ -30,30 +30,32 @@ describe('TelegramProcessor', () => {
     const messages: Message[] = [
       { chatId: 'default', text: 'info message', level: 'info' },
       { chatId: 'default', text: 'warning message', level: 'warning' },
-      { chatId: 'default', text: 'error message', level: 'error' }
+      { chatId: 'default', text: 'error message', level: 'error' },
     ];
 
     await processor.processBatch(messages);
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
-    
-    expect(url).toBe(`https://api.telegram.org/bot${defaultConfig.botToken}/sendMessage`);
+
+    expect(url).toBe(
+      `https://api.telegram.org/bot${defaultConfig.botToken}/sendMessage`
+    );
     const body = JSON.parse(options.body);
     expect(body).toEqual({
       chat_id: defaultConfig.chatId,
       text: '[INFO] info message\n[WARNING] warning message\n[ERROR] error message',
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
     });
   });
 
   it('should not send messages in development mode', async () => {
     const processor = createTelegramProcessor({
       ...defaultConfig,
-      development: true
+      development: true,
     });
     const messages: Message[] = [
-      { chatId: 'default', text: 'test message', level: 'info' }
+      { chatId: 'default', text: 'test message', level: 'info' },
     ];
 
     await processor.processBatch(messages);
@@ -63,23 +65,23 @@ describe('TelegramProcessor', () => {
 
   it('should throw error on failed API response', async () => {
     // Updated mock implementation for failed response
-    (global.fetch as jest.Mock).mockImplementationOnce(() => 
-      Promise.resolve({ 
-        ok: false, 
+    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: false,
         status: 400,
         statusText: 'Bad Request',
-        json: () => Promise.resolve({})
+        json: () => Promise.resolve({}),
       } as Response)
     );
 
     const processor = createTelegramProcessor(defaultConfig);
     const messages: Message[] = [
-      { chatId: 'default', text: 'test message', level: 'info' }
+      { chatId: 'default', text: 'test message', level: 'info' },
     ];
 
-    await expect(processor.processBatch(messages))
-      .rejects
-      .toThrow('Telegram API error: Bad Request');
+    await expect(processor.processBatch(messages)).rejects.toThrow(
+      'Telegram API error: Bad Request'
+    );
   });
 
   it('should handle empty message batch', async () => {
@@ -92,13 +94,13 @@ describe('TelegramProcessor', () => {
     // Restore console.log for this test
     (console.log as jest.Mock).mockRestore();
     const consoleSpy = jest.spyOn(console, 'log');
-    
+
     const processor = createTelegramProcessor({
       ...defaultConfig,
-      development: true
+      development: true,
     });
     const messages: Message[] = [
-      { chatId: 'default', text: 'test message', level: 'info' }
+      { chatId: 'default', text: 'test message', level: 'info' },
     ];
 
     await processor.processBatch(messages);
@@ -111,26 +113,28 @@ describe('TelegramProcessor', () => {
   });
 
   it('should handle API errors with missing status text', async () => {
-    (global.fetch as jest.Mock).mockImplementationOnce(() => 
-      Promise.resolve({ 
+    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+      Promise.resolve({
         ok: false,
-        status: 400
+        status: 400,
       } as Response)
     );
 
     const processor = createTelegramProcessor(defaultConfig);
-    const messages = [{ chatId: 'default', text: 'test', level: 'info' }] as Message[];
+    const messages = [
+      { chatId: 'default', text: 'test', level: 'info' },
+    ] as Message[];
 
-    await expect(processor.processBatch(messages))
-      .rejects
-      .toThrow('Telegram API error: Unknown Error');
+    await expect(processor.processBatch(messages)).rejects.toThrow(
+      'Telegram API error: Unknown Error'
+    );
   });
 
   it('should handle empty formatted messages', async () => {
     const processor = createTelegramProcessor(defaultConfig);
     const messages: Message[] = [
-      { chatId: 'default', text: '   ', level: 'info' },  // whitespace only
-      { chatId: 'default', text: '', level: 'info' }      // empty string
+      { chatId: 'default', text: '   ', level: 'info' }, // whitespace only
+      { chatId: 'default', text: '', level: 'info' }, // empty string
     ];
 
     const consoleSpy = jest.spyOn(console, 'log');
@@ -145,7 +149,7 @@ describe('TelegramProcessor', () => {
     const processor = createTelegramProcessor(defaultConfig);
     const error = new Error('Test error');
     const messages: Message[] = [
-      { chatId: 'default', text: 'Error occurred', level: 'error', error }
+      { chatId: 'default', text: 'Error occurred', level: 'error', error },
     ];
 
     await processor.processBatch(messages);
