@@ -1,0 +1,34 @@
+{
+  "name": "@vbase/telegram-bot",
+  "version": "0.1.0",
+  "description": "Batched Telegram notification bot for VBase",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write 'src/**/*.ts'",
+    "prepublish": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vbase/telegram-bot.git"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "notifications",
+    "vbase"
+  ],
+  "author": "VBase",
+  "license": "MIT",
+  "peerDependencies": {
+    "typescript": ">=4.0.0"
+  }
+}
