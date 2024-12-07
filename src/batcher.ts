@@ -15,7 +15,7 @@ export class MessageBatcher {
       this.queues.set(chatId, []);
     }
 
-    const queue = this.queues.get(chatId)!;
+    const queue = this.queues.get(chatId) ?? [];
     queue.push(message);
 
     if (queue.length >= this.config.maxBatchSize) {
