@@ -21,3 +21,44 @@ export interface TelegramConfig {
 export interface MessageProcessor {
   processBatch(messages: Message[]): Promise<void>;
 }
+
+export type ProcessorOptions = {
+  markdown?: {
+    escapeSpecialChars?: boolean;
+  };
+  alert?: {
+    level: 'info' | 'warning' | 'critical';
+    silent?: boolean;
+  };
+  rateLimit?: {
+    intervalMs: number;
+    maxMessages?: number;
+  };
+  email?: {
+    subject?: string;
+    template?: string;
+    priority?: 'high' | 'normal' | 'low';
+  };
+  discord?: {
+    username?: string;
+    avatar?: string;
+  };
+};
+
+export type ProcessorConfig = {
+  type: string;
+  options?: ProcessorOptions[keyof ProcessorOptions];
+};
+
+export type ProcessorResult = {
+  text: string;
+  parseMode?: 'HTML' | 'MarkdownV2';
+  silent?: boolean;
+};
+
+export type Processor = {
+  process: (
+    message: string,
+    config?: ProcessorConfig
+  ) => Promise<ProcessorResult>;
+};
