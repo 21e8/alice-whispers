@@ -1,5 +1,5 @@
 import type { Message, MessageProcessor, TelegramConfig } from '../types';
-import { classifyError } from '../utils/errorClassifier';
+import { classifyError, clearErrorTracking } from '../utils/errorClassifier';
 // import fetch from 'node-fetch';
 
 export function createTelegramProcessor(
@@ -18,52 +18,57 @@ export function createTelegramProcessor(
       return;
     }
 
-    const formattedMessages = messages
-      .map((msg) => {
-        const prefix = msg.level.toUpperCase();
-        let text = `[${prefix}] ${msg.text}`;
-        
-        if (msg.level === 'error' && msg.error) {
-          const classified = classifyError(msg.error);
+    try {
+      const formattedMessages = messages
+        .map((msg) => {
+          const prefix = msg.level.toUpperCase();
+          let text = `[${prefix}] ${msg.text}`;
           
-          if (classified.isAggregated) {
-            text += `\n[AGGREGATED] ${classified.occurrences} similar errors in ${classified.timeWindow}`;
+          if (msg.level === 'error' && msg.error) {
+            const classified = classifyError(msg.error);
+            
+            if (classified.isAggregated) {
+              text += `\n[AGGREGATED] ${classified.occurrences} similar errors in ${classified.timeWindow}`;
+              text += `\nCategory: ${classified.category}`;
+              if (classified.details) {
+                text += `\nDetails: ${JSON.stringify(classified.details)}`;
+              }
+              return text;
+            }
+            
             text += `\nCategory: ${classified.category}`;
+            text += `\nSeverity: ${classified.severity}`;
             if (classified.details) {
               text += `\nDetails: ${JSON.stringify(classified.details)}`;
             }
-            return text;
           }
           
-          text += `\nCategory: ${classified.category}`;
-          text += `\nSeverity: ${classified.severity}`;
-          if (classified.details) {
-            text += `\nDetails: ${JSON.stringify(classified.details)}`;
-          }
-        }
-        
-        return text;
-      })
-      .filter(Boolean)
-      .join('\n');
+          return text;
+        })
+        .filter(Boolean)
+        .join('\n');
 
-    if (!formattedMessages.length) {
-      console.log('[Telegram] No messages to send');
-      return;
-    }
+      if (!formattedMessages.length) {
+        console.log('[Telegram] No messages to send');
+        return;
+      }
 
-    const response = await fetch(`${baseUrl}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: formattedMessages,
-        parse_mode: 'HTML',
-      }),
-    });
+      const response = await fetch(`${baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: formattedMessages,
+          parse_mode: 'HTML',
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Telegram API error: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Telegram API error: ${response.statusText}`);
+      }
+    } finally {
+      // Clear error tracking after processing batch
+      clearErrorTracking();
     }
   }
 

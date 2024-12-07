@@ -160,6 +160,44 @@ describe('ErrorClassifier', () => {
       const details = JSON.parse(detailsLine.split('Details: ')[1]);
       expect(details).toEqual({ constraint: 'users_pkey' });
     });
+
+    it('should reset error tracking between batches', async () => {
+      const dbError = new Error('duplicate key value violates unique constraint "users_pkey"');
+      const now = Date.now();
+      jest.spyOn(Date, 'now').mockImplementation(() => now);
+
+      const processor = createTelegramProcessor({
+        botToken: 'test',
+        chatId: 'test'
+      });
+
+      // First batch of 3 errors
+      await processor.processBatch(Array(3).fill(null).map((_, i) => ({
+        chatId: 'test',
+        text: `Batch 1 Error ${i + 1}`,
+        level: 'error' as const,
+        error: dbError
+      })));
+
+      // Second batch of 3 errors - should not be aggregated because tracking was cleared
+      await processor.processBatch(Array(3).fill(null).map((_, i) => ({
+        chatId: 'test',
+        text: `Batch 2 Error ${i + 1}`,
+        level: 'error' as const,
+        error: dbError
+      })));
+
+      const calls = (global.fetch as jest.Mock).mock.calls;
+      expect(calls.length).toBe(2);
+
+      // Check both batches were sent separately
+      const batch1 = JSON.parse(calls[0][1].body);
+      const batch2 = JSON.parse(calls[1][1].body);
+
+      // Neither batch should show aggregation
+      expect(batch1.text).not.toContain('[AGGREGATED]');
+      expect(batch2.text).not.toContain('[AGGREGATED]');
+    });
   });
 
   afterEach(() => {
