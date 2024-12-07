@@ -4,6 +4,7 @@ import type {
   Message,
   MessageProcessor,
 } from './types';
+import fetch from 'node-fetch';
 
 const LEVEL_EMOJIS: Record<NotificationLevel, string> = {
   info: 'ℹ️',
@@ -30,27 +31,29 @@ export class TelegramBatcher implements MessageProcessor {
     });
 
     const text = formattedMessages.join('\n\n');
+    await this.sendMessage(text);
+  }
+
+  private async sendMessage(text: string): Promise<void> {
+    if (this.config.development) {
+      console.log('[Telegram]', text);
+      return;
+    }
+
     const url = `https://api.telegram.org/bot${this.config.botToken}/sendMessage`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: this.config.chatId,
-          text,
-          parse_mode: 'HTML',
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('Failed to send Telegram message:', error);
-      }
-    } catch (error) {
-      console.error('Error sending Telegram message:', error);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: this.config.chatId,
+        text,
+        parse_mode: 'HTML',
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(
+        `Failed to send message to Telegram: ${response.statusText}`
+      );
     }
   }
 }

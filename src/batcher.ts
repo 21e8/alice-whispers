@@ -64,6 +64,12 @@ export class MessageBatcher {
     );
   }
 
+  public async flush(): Promise<void> {
+    for (const chatId of this.queues.keys()) {
+      await this.processBatch(chatId);
+    }
+  }
+
   public destroy(): void {
     if (this.processInterval) {
       clearInterval(this.processInterval);
@@ -76,3 +82,4 @@ export class MessageBatcher {
     this.queues.clear();
   }
 }
+
