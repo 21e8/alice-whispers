@@ -3,7 +3,7 @@ import { type Message, type BatcherConfig } from './types';
 export class MessageBatcher {
   private queues: Map<string, Message[]> = new Map();
   private timers: Map<string, NodeJS.Timeout> = new Map();
-  private config: BatcherConfig;
+  protected config: BatcherConfig;
 
   constructor(config: BatcherConfig) {
     this.config = config;

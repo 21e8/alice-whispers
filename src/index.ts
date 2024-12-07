@@ -1,2 +1,8 @@
-export { MessageBatcher } from './batcher.js';
-export type { NotificationLevel, QueuedMessage, TelegramConfig } from './types.js';
+export { MessageBatcher } from './batcher';
+export { TelegramBatcher } from './telegram';
+export type {
+  NotificationLevel,
+  TelegramConfig,
+  Message,
+  BatcherConfig,
+} from './types';
