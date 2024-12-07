@@ -6,8 +6,9 @@ import {
   type MessageBatcher,
 } from './types';
 
-const globalQueues: Map<string, Message[]> = new Map();
-const timers: Map<string, NodeJS.Timeout> = new Map();
+// Export for testing
+export const globalQueues: Map<string, Message[]> = new Map();
+export const timers: Map<string, NodeJS.Timeout> = new Map();
 
 export function createMessageBatcher(
   processors: MessageProcessor[],
@@ -34,7 +35,6 @@ export function createMessageBatcher(
   function error(message: string, error?: Error | string): void {
     queueMessage(message, 'error', error);
   }
-
   function queueMessage(
     message: string,
     level: NotificationLevel,
@@ -146,6 +146,7 @@ export function createMessageBatcher(
     warning,
     error,
     queueMessage,
+    processBatch: processBatch,
     flush,
     flushSync,
     destroy,

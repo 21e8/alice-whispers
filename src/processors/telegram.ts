@@ -25,13 +25,13 @@ export function createTelegramProcessor(
     try {
       const formattedMessages = messages
         .map((msg) => {
+          if (!msg.text.trim()) return null;
           const prefix = msg.level.toUpperCase();
           let text = `[${prefix}] ${msg.text}`;
 
           if (msg.level === 'error' && msg.error) {
             const classified = classifyError(msg.error);
             text += '\n' + formatClassifiedError(classified);
-            return text;
           }
 
           return text;
@@ -39,7 +39,7 @@ export function createTelegramProcessor(
         .filter(Boolean)
         .join('\n');
 
-      if (!formattedMessages.length) {
+      if (!formattedMessages) {
         console.log('[Telegram] No messages to send');
         return;
       }

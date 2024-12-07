@@ -21,6 +21,7 @@ export interface TelegramConfig {
 
 export interface MessageProcessor {
   processBatch(messages: Message[]): Promise<void>;
+  processBatchSync?(messages: Message[]): void;
 }
 
 export interface MessageBatcher {
@@ -28,6 +29,7 @@ export interface MessageBatcher {
   warning(message: string): void;
   error(message: string, error?: Error | string): void;
   queueMessage(message: string, level: NotificationLevel): void;
+  processBatch(chatId: string): Promise<void>;
   flush(): Promise<void>;
   flushSync(): void;
   destroy(): void;
@@ -36,23 +38,6 @@ export interface MessageBatcher {
 export type ProcessorOptions = {
   markdown?: {
     escapeSpecialChars?: boolean;
-  };
-  alert?: {
-    level: 'info' | 'warning' | 'critical';
-    silent?: boolean;
-  };
-  rateLimit?: {
-    intervalMs: number;
-    maxMessages?: number;
-  };
-  email?: {
-    subject?: string;
-    template?: string;
-    priority?: 'high' | 'normal' | 'low';
-  };
-  discord?: {
-    username?: string;
-    avatar?: string;
   };
 };
 

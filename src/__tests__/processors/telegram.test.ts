@@ -125,4 +125,35 @@ describe('TelegramProcessor', () => {
       .rejects
       .toThrow('Telegram API error: Unknown Error');
   });
+
+  it('should handle empty formatted messages', async () => {
+    const processor = createTelegramProcessor(defaultConfig);
+    const messages: Message[] = [
+      { chatId: 'default', text: '   ', level: 'info' },  // whitespace only
+      { chatId: 'default', text: '', level: 'info' }      // empty string
+    ];
+
+    const consoleSpy = jest.spyOn(console, 'log');
+    await processor.processBatch(messages);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith('[Telegram] No messages to send');
+    consoleSpy.mockRestore();
+  });
+
+  it('should format error messages with error details', async () => {
+    const processor = createTelegramProcessor(defaultConfig);
+    const error = new Error('Test error');
+    const messages: Message[] = [
+      { chatId: 'default', text: 'Error occurred', level: 'error', error }
+    ];
+
+    await processor.processBatch(messages);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [, options] = (global.fetch as jest.Mock).mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.text).toContain('[ERROR] Error occurred');
+    expect(body.text).toContain('Test error');
+  });
 });
