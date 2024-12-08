@@ -148,9 +148,10 @@ export function createMessageBatcher(
           (result): result is PromiseRejectedResult =>
             result.status === 'rejected'
         )
-        .map((result) => result.reason instanceof Error 
-          ? result.reason 
-          : new Error(String(result.reason))
+        .map((result) =>
+          result.reason instanceof Error
+            ? result.reason
+            : new Error(String(result.reason))
         );
 
       errors.push(...chunkErrors);
@@ -172,7 +173,8 @@ export function createMessageBatcher(
     try {
       await processor.processBatch(batch);
     } catch (error) {
-      const wrappedError = error instanceof Error ? error : new Error(String(error));
+      const wrappedError =
+        error instanceof Error ? error : new Error(String(error));
       console.error(`Processor ${processor.name} failed:`, wrappedError);
       throw wrappedError;
     }
@@ -200,7 +202,10 @@ export function createMessageBatcher(
     );
 
     if (errors.length > 0) {
-      throw new BatchAggregateError(errors, 'Some processors failed to process batch');
+      throw new BatchAggregateError(
+        errors,
+        'Some processors failed to process batch'
+      );
     }
   }
 
@@ -223,14 +228,19 @@ export function createMessageBatcher(
           const result = processor.processBatch(batch);
           if (result instanceof Promise) {
             result.catch((error: unknown) => {
-              const wrappedError = error instanceof Error ? error : new Error(String(error));
-              console.error(`Processor ${processor.name} failed:`, wrappedError);
+              const wrappedError =
+                error instanceof Error ? error : new Error(String(error));
+              console.error(
+                `Processor ${processor.name} failed:`,
+                wrappedError
+              );
               errors.push(wrappedError);
             });
           }
         }
       } catch (error) {
-        const wrappedError = error instanceof Error ? error : new Error(String(error));
+        const wrappedError =
+          error instanceof Error ? error : new Error(String(error));
         console.error(`Processor ${processor.name} failed:`, wrappedError);
         errors.push(wrappedError);
       }
@@ -238,13 +248,16 @@ export function createMessageBatcher(
 
     // If there were any sync errors, throw them
     if (errors.length > 0) {
-      throw new BatchAggregateError(errors, 'Some processors failed to process batch');
+      throw new BatchAggregateError(
+        errors,
+        'Some processors failed to process batch'
+      );
     }
   }
 
   async function flush(): Promise<void> {
     const errors: Error[] = [];
-    
+
     // Clear any pending timers first
     for (const timer of timers.values()) {
       clearTimeout(timer);
@@ -259,14 +272,19 @@ export function createMessageBatcher(
         if (error instanceof BatchAggregateError) {
           errors.push(...error.errors);
         } else {
-          errors.push(error instanceof Error ? error : new Error(String(error)));
+          errors.push(
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
     }
 
     // If there were any errors, throw a BatchAggregateError
     if (errors.length > 0) {
-      throw new BatchAggregateError(errors, 'Some batches failed to process during flush');
+      throw new BatchAggregateError(
+        errors,
+        'Some batches failed to process during flush'
+      );
     }
   }
 
@@ -285,14 +303,19 @@ export function createMessageBatcher(
         if (error instanceof BatchAggregateError) {
           errors.push(...error.errors);
         } else {
-          errors.push(error instanceof Error ? error : new Error(String(error)));
+          errors.push(
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
     }
 
     // If there were any errors, throw a BatchAggregateError
     if (errors.length > 0) {
-      throw new BatchAggregateError(errors, 'Some batches failed to process during flush');
+      throw new BatchAggregateError(
+        errors,
+        'Some batches failed to process during flush'
+      );
     }
   }
 
@@ -308,13 +331,19 @@ export function createMessageBatcher(
       await flush();
     } catch (error) {
       if (error instanceof BatchAggregateError) {
-        console.error('Error processing remaining messages during destroy:', error);
+        console.error(
+          'Error processing remaining messages during destroy:',
+          error
+        );
       } else {
         const wrappedError = new BatchAggregateError(
           [error instanceof Error ? error : new Error(String(error))],
           'Error processing remaining messages during destroy'
         );
-        console.error('Error processing remaining messages during destroy:', wrappedError);
+        console.error(
+          'Error processing remaining messages during destroy:',
+          wrappedError
+        );
       }
     } finally {
       // Clean up all resources
