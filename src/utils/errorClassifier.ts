@@ -1,16 +1,20 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { ErrorPattern, ErrorPatternConfig, SeverityLevel } from '../types';
 
 // Store error patterns
 const errorPatterns: ErrorPattern[] = [];
 
-// Track error occurrences for aggregation
-type ErrorStats = {
+// Track message occurrences for aggregation
+type MessageGroup = {
   count: number;
+  category: string;
+  severity: SeverityLevel;
+  level: string;
   firstSeen: number;
   windowMs: number;
 };
 
-const errorTracking = new Map<string, ErrorStats>();
+const messageGroups = new Map<string, MessageGroup>();
 
 export function addErrorPatterns(patterns: ErrorPatternConfig[]) {
   for (const pattern of patterns) {
@@ -19,7 +23,9 @@ export function addErrorPatterns(patterns: ErrorPatternConfig[]) {
       matcher,
       category,
       severity,
-      aggregation ? [aggregation.windowMs, aggregation.countThreshold] : undefined,
+      aggregation
+        ? [aggregation.windowMs, aggregation.countThreshold]
+        : undefined,
     ];
     errorPatterns.push(entry);
   }
@@ -30,41 +36,25 @@ export function clearErrorPatterns() {
 }
 
 export function clearErrorTracking() {
-  errorTracking.clear();
+  const now = Date.now();
+  for (const [key, group] of messageGroups.entries()) {
+    const age = now - group.firstSeen;
+    if (age > group.windowMs) {
+      messageGroups.delete(key);
+    }
+  }
 }
 
 export type ClassifiedError = [
   message: string,
   category: string,
   severity: SeverityLevel,
-  aggregated?: [
-    count: number,
-    windowMs: number,
-  ]
+  aggregated?: [count: number, windowMs: number]
 ];
 
-export function getAggregatedErrors() {
-  const now = Date.now();
-  const result: Record<string, { count: number; windowMs: number }> = {};
-
-  // Clean up old entries and collect aggregation stats
-  for (const [key, stats] of errorTracking.entries()) {
-    const age = now - stats.firstSeen;
-    if (age > stats.windowMs) {
-      errorTracking.delete(key);
-    } else {
-      result[key] = {
-        count: stats.count,
-        windowMs: age,
-      };
-    }
-  }
-
-  return result;
-}
-
 export async function classifyError(
-  error: Error | string
+  error: Error | string,
+  level = 'error'
 ): Promise<ClassifiedError> {
   const message = error instanceof Error ? error.message : error;
   const now = Date.now();
@@ -81,32 +71,38 @@ export async function classifyError(
     }
 
     if (matches) {
-      // If this pattern has aggregation config
       if (aggregation) {
-        const [windowMs, countThreshold] = aggregation;
-        const key = `${category}-${severity}`;
-        
-        // Get or create tracking stats
-        let stats = errorTracking.get(key);
-        if (!stats) {
-          stats = { count: 0, firstSeen: now, windowMs };
-          errorTracking.set(key, stats);
-        }
-        
-        // Update count
-        stats.count++;
-        
-        // If we've hit the threshold, include aggregation info
-        if (stats.count >= countThreshold) {
-          return [
-            message,
+        const [windowMs] = aggregation;
+        const key = `${category}-${severity}-${level}`;
+
+        let group = messageGroups.get(key);
+        if (!group) {
+          group = {
+            count: 0,
             category,
             severity,
-            [
-              stats.count,
-              now - stats.firstSeen,
-            ],
+            level,
+            firstSeen: now,
+            windowMs,
+          };
+          messageGroups.set(key, group);
+        }
+
+        // Only increment if within window
+        const age = now - group.firstSeen;
+        if (age <= windowMs) {
+          group.count++;
+          return [
+            `${group.count} ${level} messages of category ${category} occurred`,
+            category,
+            severity,
+            [group.count, age],
           ];
+        } else {
+          // Start new window
+          group.count = 1;
+          group.firstSeen = now;
+          return [message, category, severity];
         }
       }
 
@@ -114,15 +110,26 @@ export async function classifyError(
     }
   }
 
-  // Default classification if no patterns match
   return [message, 'UNKNOWN', 'low'];
 }
 
 export function formatClassifiedError(error: ClassifiedError): string {
-  let result = `Message: ${error[0]}\nCategory: ${error[1]}\nSeverity: ${error[2]}`;
-  if (error[3]) {
-    const seconds = Math.round(error[3][1] / 1000);
-    result += `\n[AGGREGATED] ${error[3][0]} similar errors in ${seconds}s`;
+  return error[0];
+}
+
+export function getAggregatedErrors() {
+  const now = Date.now();
+  const result: Record<string, { count: number; windowMs: number }> = {};
+
+  for (const [key, group] of messageGroups.entries()) {
+    const age = now - group.firstSeen;
+    if (age <= group.windowMs) {
+      result[key] = {
+        count: group.count,
+        windowMs: age,
+      };
+    }
   }
+
   return result;
 }

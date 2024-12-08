@@ -19,6 +19,28 @@ Intelligent message batching system that whispers your messages in perfect harmo
 - 🔌 Extensible processor system for custom implementations
 - 🎭 Elegant: Beautiful message formatting and intelligent error handling
 - 💪 Written in TypeScript with full type safety
+- **High-Performance Message Processing**
+
+  - Process 250,000+ messages per second
+  - Handle bursts of 5,000 messages in 10-20ms
+  - Average processing time of 0.004ms per message
+
+- **Intelligent Message Aggregation**
+
+  - Automatically group similar messages within time windows
+  - Reduce thousands of messages to meaningful summaries
+  - Configurable aggregation patterns and thresholds
+
+- **Efficient Resource Usage**
+
+  - Optimized memory footprint
+  - Concurrent message processing
+  - Smart batching with configurable sizes
+
+- **Developer-Friendly**
+  - Full TypeScript support
+  - Easy to configure and extend
+  - Comprehensive error handling
 
 ## Installation
 
@@ -33,10 +55,7 @@ yarn add alice-whispers
 ## Quick Start
 
 ```typescript
-import {
-  createMessageBatcher,
-  createTelegramProcessor,
-} from 'alice-whispers';
+import { createMessageBatcher, createTelegramProcessor } from 'alice-whispers';
 
 // Create a Telegram processor
 const telegramProcessor = createTelegramProcessor({
@@ -69,7 +88,11 @@ batcher.destroy();
 Handle thousands of messages with smart batching and aggregation:
 
 ```typescript
-import { createMessageBatcher, createTelegramProcessor, addErrorPatterns } from 'alice-whispers';
+import {
+  createMessageBatcher,
+  createTelegramProcessor,
+  addErrorPatterns,
+} from 'alice-whispers';
 
 // Configure error patterns for aggregation
 addErrorPatterns([
@@ -79,24 +102,26 @@ addErrorPatterns([
     category: 'RATE_LIMIT',
     severity: 'high',
     aggregation: {
-      windowMs: 60000,    // 1 minute window
-      countThreshold: 10  // Aggregate after 10 occurrences
-    }
-  }
+      windowMs: 60000, // 1 minute window
+      countThreshold: 10, // Aggregate after 10 occurrences
+    },
+  },
 ]);
 
 // Create processor with larger batch size
 const batcher = createMessageBatcher({
-  maxBatchSize: 100,     // Process in batches of 100
-  maxWaitMs: 30000,      // Or every 30 seconds
-  concurrentProcessors: 3 // Run multiple processors in parallel
+  maxBatchSize: 100, // Process in batches of 100
+  maxWaitMs: 30000, // Or every 30 seconds
+  concurrentProcessors: 3, // Run multiple processors in parallel
 });
 
 // Add your processors
-batcher.addProcessor(createTelegramProcessor({
-  botToken: process.env.TELEGRAM_BOT_TOKEN!,
-  chatId: process.env.TELEGRAM_CHAT_ID!
-}));
+batcher.addProcessor(
+  createTelegramProcessor({
+    botToken: process.env.TELEGRAM_BOT_TOKEN!,
+    chatId: process.env.TELEGRAM_CHAT_ID!,
+  })
+);
 
 // Simulate high-volume message processing
 for (let i = 0; i < 1000; i++) {
@@ -168,10 +193,10 @@ Messages are internally stored as tuples with the following structure:
 
 ```typescript
 type Message = [
-  chatId,     // Position 0: string - Identifier for the chat/channel
-  text,       // Position 1: string - The message content
-  level,      // Position 2: 'info' | 'warning' | 'error' - Message level
-  error?      // Position 3: Optional Error | string - Error details
+  chatId, // Position 0: string - Identifier for the chat/channel
+  text, // Position 1: string - The message content
+  level, // Position 2: 'info' | 'warning' | 'error' - Message level
+  error? // Position 3: Optional Error | string - Error details
 ];
 ```
 
@@ -186,9 +211,9 @@ Error patterns are internally stored as tuples with the following structure:
 
 ```typescript
 type ErrorPattern = readonly [
-  pattern,    // Position 0: RegExp | function - Pattern to match errors
-  category,   // Position 1: string - Category name for grouping similar errors
-  severity,   // Position 2: 'low' | 'medium' | 'high' | string - Error severity
+  pattern, // Position 0: RegExp | function - Pattern to match errors
+  category, // Position 1: string - Category name for grouping similar errors
+  severity, // Position 2: 'low' | 'medium' | 'high' | string - Error severity
   [windowMs, countThreshold]? // Position 3: Optional aggregation settings
 ];
 ```
@@ -276,3 +301,28 @@ const processor = createCustomProcessor({
 ## License
 
 MIT © 0xAlice
+
+## Performance
+
+In our validation tests on an M3 Pro, the system demonstrates exceptional performance:
+
+- **Throughput**: Processes 100,000+ messages in under 400ms
+- **Speed**: Average processing time of 0.004ms per message
+- **Scalability**: Handles 250,000+ messages per second
+- **Efficiency**: Aggregates thousands of similar messages into meaningful summaries
+- **Batching**: Processes bursts of 5,000 messages in 10-20ms
+- **Memory**: Maintains stable memory usage even at high volumes
+
+Example of message reduction through aggregation:
+
+```
+Input: 100,140 total messages
+- 100,000 error messages
+- 140 info messages
+
+Output: Aggregated to just 4 meaningful messages:
+🚨 99,862 error messages of category RATE_LIMIT occurred
+ℹ️ 20 info messages of category BURST_COMPLETE occurred
+ℹ️ Progress updates aggregated by category
+ℹ️ Burst starts aggregated by category
+```

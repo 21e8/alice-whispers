@@ -36,18 +36,19 @@ export function createTelegramProcessor(
     }
 
     try {
-      // First pass: Classify all errors to populate aggregation tracking
-      const classifiedErrors = await Promise.all(
+      // First pass: Classify all messages to populate aggregation tracking
+      const classifiedMessages = await Promise.all(
         messages.toArray().map(async (msg) => {
           if (msg[2] === 'error' && msg[3]) {
-            return classifyError(msg[3]);
+            return classifyError(msg[3], msg[2]);
+          } else {
+            return classifyError(msg[1], msg[2]);
           }
-          return null;
         })
       );
 
-      // Get aggregated error stats
-      const aggregatedErrors = getAggregatedErrors();
+      // Get aggregated message stats
+      const aggregatedMessages = getAggregatedErrors();
       const processedMessages = new Set<string>();
 
       // Second pass: Format messages with aggregation
@@ -55,35 +56,19 @@ export function createTelegramProcessor(
         messages.toArray().map(async (msg, index) => {
           if (!msg[1].trim()) return null;
 
-          // For error messages, check if they're part of an aggregation
-          if (msg[2] === 'error' && msg[3] && classifiedErrors[index]) {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            const classified = classifiedErrors[index]!;
-            const key = `${classified[1]}-${classified[2]}`;
+          const classified = classifiedMessages[index]!;
+          const key = `${classified[1]}-${classified[2]}-${msg[2]}`;
 
-            // If this error is part of an aggregation and we haven't processed it yet
-            if (aggregatedErrors[key] && !processedMessages.has(key)) {
-              processedMessages.add(key);
-              const { count, windowMs } = aggregatedErrors[key];
-              const seconds = Math.round(windowMs / 1000);
-              return `${
-                EMOJIS.get(msg[2]) ?? ''
-              } [${msg[2].toUpperCase()}] ${count} similar errors in last ${seconds}s:\n${formatClassifiedError(
-                classified
-              )}`;
-            } else if (!aggregatedErrors[key]) {
-              // Not aggregated, show full message
-              const prefix = msg[2].toUpperCase();
-              return `${EMOJIS.get(msg[2]) ?? ''} [${prefix}] ${
-                msg[1]
-              }\n${formatClassifiedError(classified)}`;
-            }
-            return null; // Skip aggregated messages after the first one
+          // If this message is part of an aggregation and we haven't processed it yet
+          if (aggregatedMessages[key] && !processedMessages.has(key)) {
+            processedMessages.add(key);
+            return `${EMOJIS.get(msg[2]) ?? ''} ${formatClassifiedError(classified)}`;
+          } else if (!aggregatedMessages[key]) {
+            // Not aggregated, show full message
+            const prefix = msg[2].toUpperCase();
+            return `${EMOJIS.get(msg[2]) ?? ''} [${prefix}] ${msg[1]}`;
           }
-
-          // Non-error messages
-          const prefix = msg[2].toUpperCase();
-          return `${EMOJIS.get(msg[2]) ?? ''} [${prefix}] ${msg[1]}`;
+          return null; // Skip aggregated messages after the first one
         })
       );
 
