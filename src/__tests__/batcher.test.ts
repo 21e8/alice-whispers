@@ -7,6 +7,7 @@ describe('MessageBatcher', () => {
   let batcher: MessageBatcher;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     processedMessages = [];
     mockProcessor = {
       name: 'mock',
@@ -22,6 +23,7 @@ describe('MessageBatcher', () => {
     }
     jest.clearAllMocks();
     jest.clearAllTimers();
+    jest.useRealTimers();
   });
 
   it('should process messages with concurrent processors', async () => {
@@ -170,9 +172,9 @@ describe('MessageBatcher', () => {
     batcher.info('message 1');
     batcher.info('message 2');
 
-    // Wait for processing
-    await new Promise(process.nextTick);
-    await batcher.flush();
+    // Run timers and wait for processing
+    jest.advanceTimersByTime(1000);
+    await Promise.resolve();
 
     expect(processBatchSpy).toHaveBeenCalledWith(
       expect.arrayContaining([
@@ -184,7 +186,7 @@ describe('MessageBatcher', () => {
         }),
       ])
     );
-  }, 10000);
+  });
 
   it('should handle sync processor errors', async () => {
     const errorProcessor = {
@@ -264,7 +266,7 @@ describe('MessageBatcher', () => {
     const slowProcessor = {
       name: 'processor1',
       processBatch: jest.fn().mockImplementation(async () => {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await Promise.resolve();
       }),
     };
     const fastProcessor = {

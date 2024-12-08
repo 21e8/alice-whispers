@@ -5,12 +5,8 @@ import {
   type MessageProcessor,
   type MessageBatcher,
 } from './types';
-
 // Export for testing
 let globalBatcher: MessageBatcher | null = null;
-const resetGlobalBatcher = () => {
-  globalBatcher = null;
-};
 
 export function createMessageBatcher(
   processors: MessageProcessor[],
@@ -30,6 +26,9 @@ export function createMessageBatcher(
   const maxWaitMs = config.maxWaitMs ?? 60_000; // 1 minute
 
   function startProcessing(): void {
+    if (processInterval) {
+      clearInterval(processInterval);
+    }
     processInterval = setInterval(async () => {
       for (const chatId of queues.keys()) {
         await processBatch(chatId);
@@ -47,8 +46,10 @@ export function createMessageBatcher(
   }
 
   function removeAllExtraProcessors(): void {
+    for (const processor of extraProcessors) {
+      removeExtraProcessor(processor);
+    }
     extraProcessors = [];
-    // processorNames.clear();
   }
 
   function removeExtraProcessor(processor: MessageProcessor): void {
@@ -161,10 +162,8 @@ export function createMessageBatcher(
     queues.set(chatId, []);
 
     const allProcessors = [...processors, ...extraProcessors];
-    await concurrentExhaust(
-      allProcessors,
-      concurrentProcessors,
-      (processor) => exhaustProcessor(processor, batch)
+    await concurrentExhaust(allProcessors, concurrentProcessors, (processor) =>
+      exhaustProcessor(processor, batch)
     );
   }
 
@@ -218,6 +217,7 @@ export function createMessageBatcher(
     globalBatcher = null;
   }
 
+  // Initialize processing
   startProcessing();
 
   globalBatcher = {
@@ -233,6 +233,8 @@ export function createMessageBatcher(
     timers,
     addExtraProcessor,
     removeExtraProcessor,
+    removeAllExtraProcessors,
   };
+
   return globalBatcher;
 }

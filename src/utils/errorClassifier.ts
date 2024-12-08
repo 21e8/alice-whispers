@@ -1,3 +1,5 @@
+import { SeverityLevel } from "../types";
+
 // Define the named object interface
 export type ErrorPatternConfig = {
   name: string;
@@ -7,7 +9,7 @@ export type ErrorPatternConfig = {
     | Promise<boolean>
     | ((message: string) => Promise<boolean>);
   category: string;
-  severity: 'low' | 'medium' | 'high';
+  severity: SeverityLevel;
   aggregation?: {
     windowMs: number;
     countThreshold: number;
@@ -23,7 +25,7 @@ type ErrorPattern = readonly [
     | ((message: string) => Promise<boolean>)
   ),
   string, // category
-  'low' | 'medium' | 'high', // severity
+  SeverityLevel, // severity
   [number, number]? // [windowMs, countThreshold] for aggregation
 ];
 
@@ -68,7 +70,7 @@ const DEFAULT_ERROR_PATTERNS: ErrorPatternConfig[] = [
 // Store custom patterns
 let customPatterns: ErrorPattern[] = [];
 
-export function addErrorPatterns(patterns: ErrorPatternConfig[]): void {
+export function addErrorPatterns(patterns: readonly ErrorPatternConfig[]): void {
   customPatterns = customPatterns.concat(patterns.map(configToPattern));
 }
 
@@ -95,7 +97,7 @@ const errorTracker = new Map<
 type ClassifiedError = readonly [
   string, // originalMessage
   string, // category
-  'low' | 'medium' | 'high', // severity
+  SeverityLevel, // severity
   string[], // details (key-value pairs flattened)
   boolean, // isAggregated
   number?, // occurrences

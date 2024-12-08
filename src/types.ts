@@ -1,5 +1,12 @@
 export type NotificationLevel = 'info' | 'warning' | 'error';
 
+// Predefined severity levels with option for custom strings
+export type SeverityLevel =
+  | 'low'
+  | 'medium'
+  | 'high'
+  | (string & NonNullable<unknown>);
+
 export type Message = {
   chatId: string;
   text: string;
@@ -39,6 +46,7 @@ export interface MessageBatcher {
   timers: Map<string, NodeJS.Timeout>;
   addExtraProcessor(processor: MessageProcessor): void;
   removeExtraProcessor(processor: MessageProcessor): void;
+  removeAllExtraProcessors(): void;
 }
 
 export type ProcessorOptions = {
