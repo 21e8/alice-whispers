@@ -179,16 +179,17 @@ describe('MessageBatcher', () => {
     expect(processBatchSpy).toHaveBeenCalledWith(messages);
   });
 
-  it('should handle sync processor errors', async () => {
+  it('should handle sync processor errors', () => {
+    const error = new Error('Sync error');
     const errorProcessor = {
       type: 'external' as const,
       name: 'mock',
-      processBatchSync: () => {
-        throw new Error('Sync error');
-      },
-      processBatch: () => {
-        throw new Error('Sync error');
-      },
+      processBatchSync: jest.fn().mockImplementation(() => {
+        throw error;
+      }),
+      processBatch: jest.fn().mockImplementation(() => {
+        throw error;
+      }),
     };
 
     batcher = createMessageBatcher([errorProcessor], {
@@ -198,21 +199,23 @@ describe('MessageBatcher', () => {
 
     const consoleSpy = jest.spyOn(console, 'error');
     batcher.info('test message');
-    batcher.flushSync();
-
+    
+    expect(() => batcher.flushSync()).toThrow(BatchAggregateError);
+    
     expect(consoleSpy).toHaveBeenCalledWith(
-      `Processor ${errorProcessor.name} failed:`,
-      expect.any(Error)
+      'Processor mock failed:',
+      error
     );
     consoleSpy.mockRestore();
   });
 
   it('should handle async processor errors', async () => {
+    const error = new Error('Async error');
     const errorProcessor = {
       type: 'external' as const,
       name: 'mock',
       processBatch: async () => {
-        throw new Error('Async error');
+        throw error;
       },
     };
 
@@ -223,11 +226,19 @@ describe('MessageBatcher', () => {
 
     const consoleSpy = jest.spyOn(console, 'error');
     batcher.info('test message');
-    await batcher.flush();
+    
+    try {
+      await batcher.flush();
+      fail('Expected BatchAggregateError to be thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(BatchAggregateError);
+      const batchError = e as BatchAggregateError;
+      expect(batchError.errors[0]).toBe(error);
+    }
 
     expect(consoleSpy).toHaveBeenCalledWith(
       'Processor mock failed:',
-      expect.any(Error)
+      error
     );
     consoleSpy.mockRestore();
   });
@@ -373,42 +384,50 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle concurrent processing errors', async () => {
-    const error = new Error('Test error');
+    const error1 = new Error('Test error 1');
+    const error2 = new Error('Test error 2');
     
-    // Create two processors that will throw errors
     const failingProcessor1 = {
       type: 'internal' as const,
       name: 'failing1',
-      processBatch: jest.fn().mockRejectedValue(error),
+      processBatch: jest.fn().mockRejectedValue(error1),
     };
     const failingProcessor2 = {
       type: 'internal' as const,
       name: 'failing2',
-      processBatch: jest.fn().mockRejectedValue(new Error('Second error')),
+      processBatch: jest.fn().mockRejectedValue(error2),
     };
 
     batcher = createMessageBatcher([failingProcessor1, failingProcessor2], {
       maxBatchSize: 5,
       maxWaitMs: 100,
-      concurrentProcessors: 2, // Process both at once
+      concurrentProcessors: 2,
     });
 
     const consoleSpy = jest.spyOn(console, 'error');
-    
-    // Queue a message to process
     batcher.info('test');
     
-    // The errors should be caught and aggregated
+    let caughtError: unknown;
     try {
       await batcher.flush();
       fail('Expected BatchAggregateError to be thrown');
-    } catch (error) {
-      expect(error).toBeInstanceOf(BatchAggregateError);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Processor failing1 failed:',
-        expect.any(Error)
-      );
+    } catch (e) {
+      caughtError = e;
     }
+
+    expect(caughtError).toBeInstanceOf(BatchAggregateError);
+    const batchError = caughtError as BatchAggregateError;
+    expect(batchError.errors).toContain(error1);
+    expect(batchError.errors).toContain(error2);
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Processor failing1 failed:',
+      error1
+    );
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Processor failing2 failed:',
+      error2
+    );
     
     consoleSpy.mockRestore();
   });
@@ -460,15 +479,11 @@ describe('MessageBatcher', () => {
     const consoleSpy = jest.spyOn(console, 'error');
     batcher.info('test message');
     
-    // We need to wrap flushSync in a try-catch since it will trigger async errors
-    try {
-      batcher.flushSync();
-    } catch (e) {
-      // Expected error, ignore it
-    }
+    // flushSync should not throw since async errors are handled separately
+    batcher.flushSync();
 
-    // Wait for any async operations to complete
-    await new Promise(resolve => setImmediate(resolve));
+    // Wait for the next tick to allow error handling to complete
+    await new Promise(resolve => process.nextTick(resolve));
 
     expect(consoleSpy).toHaveBeenCalledWith(
       'Processor async failed:',
@@ -697,62 +712,47 @@ describe('MessageBatcher', () => {
 
   it('should handle errors in concurrent processing', async () => {
     const error = new Error('Test error');
-    
-    // Create two processors that will throw errors
-    const failingProcessor1 = {
+    const failingProcessor = {
       type: 'internal' as const,
-      name: 'failing1',
+      name: 'failing',
       processBatch: jest.fn().mockRejectedValue(error),
     };
-    const failingProcessor2 = {
-      type: 'internal' as const,
-      name: 'failing2',
-      processBatch: jest.fn().mockRejectedValue(new Error('Second error')),
-    };
 
-    batcher = createMessageBatcher([failingProcessor1, failingProcessor2], {
+    batcher = createMessageBatcher([failingProcessor], {
       maxBatchSize: 5,
       maxWaitMs: 100,
-      concurrentProcessors: 2, // Process both at once
+      concurrentProcessors: 2,
     });
 
-    // Queue a message to process
+    const consoleSpy = jest.spyOn(console, 'error');
     batcher.info('test');
     
-    // The first error should be caught and logged
-    const consoleSpy = jest.spyOn(console, 'error');
-    await batcher.flush();
-    
-    // The first processor's error should be logged first
+    let caughtError: unknown;
+    try {
+      await batcher.flush();
+      fail('Expected BatchAggregateError to be thrown');
+    } catch (e) {
+      caughtError = e;
+    }
+
+    expect(caughtError).toBeInstanceOf(BatchAggregateError);
+    const batchError = caughtError as BatchAggregateError;
+    expect(batchError.errors[0]).toBe(error);
+
     expect(consoleSpy).toHaveBeenCalledWith(
-      'Processor failing1 failed:',
+      'Processor failing failed:',
       error
     );
+    
     consoleSpy.mockRestore();
   });
 
   it('should throw first error in concurrent processing', async () => {
     const error = new Error('Test error');
-    
-    // Create a processor that will throw an error
     const failingProcessor = {
       type: 'internal' as const,
       name: 'failing',
-      processBatch: jest.fn().mockImplementation(async () => {
-        // Create a Promise.allSettled rejection that will be handled by concurrentExhaust
-        const results = await Promise.allSettled([
-          Promise.reject(error)
-        ]);
-        
-        // This is the same code as in concurrentExhaust
-        const errors = results
-          .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-          .map(r => r.reason);
-          
-        if (errors.length > 0) {
-          throw errors[0]; // This should trigger line 139's behavior
-        }
-      }),
+      processBatch: jest.fn().mockRejectedValue(error),
     };
 
     batcher = createMessageBatcher([failingProcessor], {
@@ -764,9 +764,17 @@ describe('MessageBatcher', () => {
     // Queue a message and process it
     batcher.info('test');
     
-    // The error should be caught by exhaustBatcher
+    // The error should be wrapped in BatchAggregateError
     const consoleSpy = jest.spyOn(console, 'error');
-    await batcher.flush();
+    
+    try {
+      await batcher.flush();
+      fail('Expected BatchAggregateError to be thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(BatchAggregateError);
+      const batchError = e as BatchAggregateError;
+      expect(batchError.errors[0]).toBe(error);
+    }
     
     // Verify the error was caught and logged
     expect(consoleSpy).toHaveBeenCalledWith(

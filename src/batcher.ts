@@ -148,7 +148,10 @@ export function createMessageBatcher(
           (result): result is PromiseRejectedResult =>
             result.status === 'rejected'
         )
-        .map((result) => result.reason);
+        .map((result) => result.reason instanceof Error 
+          ? result.reason 
+          : new Error(String(result.reason))
+        );
 
       errors.push(...chunkErrors);
     }
@@ -159,15 +162,19 @@ export function createMessageBatcher(
   const exhaustBatcher = async (
     processor: MessageProcessor | InternalMessageProcessor,
     batch: Message[]
-  ) => {
-    try {
-      if (typeof processor.processBatch !== 'function') {
-        throw new Error('processBatch is not a function');
-      }
-      await processor.processBatch(batch);
-    } catch (error) {
+  ): Promise<void> => {
+    if (typeof processor.processBatch !== 'function') {
+      const error = new Error('processBatch is not a function');
       console.error(`Processor ${processor.name} failed:`, error);
       throw error;
+    }
+
+    try {
+      await processor.processBatch(batch);
+    } catch (error) {
+      const wrappedError = error instanceof Error ? error : new Error(String(error));
+      console.error(`Processor ${processor.name} failed:`, wrappedError);
+      throw wrappedError;
     }
   };
 
@@ -193,10 +200,7 @@ export function createMessageBatcher(
     );
 
     if (errors.length > 0) {
-      throw new BatchAggregateError(
-        errors.map(e => e instanceof Error ? e : new Error(String(e))),
-        'Some processors failed to process batch'
-      );
+      throw new BatchAggregateError(errors, 'Some processors failed to process batch');
     }
   }
 
@@ -207,6 +211,8 @@ export function createMessageBatcher(
     const batch = [...queue];
     queues.set(chatId, []);
 
+    const errors: Error[] = [];
+
     for (const processor of processors) {
       try {
         if (processor.processBatchSync) {
@@ -214,15 +220,25 @@ export function createMessageBatcher(
         } else if (processor.processBatch) {
           // For async processBatch, we'll catch and log errors
           // We need to handle this differently since we can't await in sync context
-          processor.processBatch(batch);
-            // .catch((error) => {
-            //   console.error(`Processor ${processor.name} failed:`, error);
-            // });
+          const result = processor.processBatch(batch);
+          if (result instanceof Promise) {
+            result.catch((error: unknown) => {
+              const wrappedError = error instanceof Error ? error : new Error(String(error));
+              console.error(`Processor ${processor.name} failed:`, wrappedError);
+              errors.push(wrappedError);
+            });
+          }
         }
       } catch (error) {
-        console.error(`Processor ${processor.name} failed:`, error);
-        throw error;
+        const wrappedError = error instanceof Error ? error : new Error(String(error));
+        console.error(`Processor ${processor.name} failed:`, wrappedError);
+        errors.push(wrappedError);
       }
+    }
+
+    // If there were any sync errors, throw them
+    if (errors.length > 0) {
+      throw new BatchAggregateError(errors, 'Some processors failed to process batch');
     }
   }
 
@@ -261,8 +277,22 @@ export function createMessageBatcher(
     }
     timers.clear();
 
+    const errors: Error[] = [];
     for (const chatId of queues.keys()) {
-      processBatchSync(chatId);
+      try {
+        processBatchSync(chatId);
+      } catch (error) {
+        if (error instanceof BatchAggregateError) {
+          errors.push(...error.errors);
+        } else {
+          errors.push(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    }
+
+    // If there were any errors, throw a BatchAggregateError
+    if (errors.length > 0) {
+      throw new BatchAggregateError(errors, 'Some batches failed to process during flush');
     }
   }
 
