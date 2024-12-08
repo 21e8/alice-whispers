@@ -14,24 +14,25 @@ async function testTimeout() {
 
   const batcher = createMessageBatcher([mockProcessor], {
     maxBatchSize: 5,
-    maxWaitMs: 200, // 2 seconds for easier observation
+    maxWaitMs: 100,
   });
 
   console.log('Sending first message...');
   batcher.info('First message');
 
-  // Wait 1 second
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 40));
 
   console.log('Sending second message...');
   batcher.info('Second message');
 
-  // Wait 3 seconds to ensure the timeout triggers
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  await new Promise((resolve) => setTimeout(resolve, 40));
 
   console.log('Test complete. Cleaning up...');
   batcher.destroy();
 }
 
 // Run the test
-testTimeout().catch(console.error);
+testTimeout().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
