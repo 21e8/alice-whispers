@@ -381,4 +381,100 @@ describe('MessageBatcher', () => {
     );
     consoleSpy.mockRestore();
   });
+
+  it('should not create singleton if disabled', () => {
+    const firstBatcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      singleton: false,
+    });
+
+    const secondBatcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      singleton: false,
+    });
+
+    expect(firstBatcher).not.toBe(secondBatcher);
+  });
+
+  it('should process messages on interval', async () => {
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.info('test message');
+    jest.advanceTimersByTime(100);
+    await Promise.resolve(); // Let any pending promises resolve
+
+    expect(mockProcessor.processBatch).toHaveBeenCalledWith([
+      ['default', 'test message', 'info', undefined],
+    ]);
+  });
+
+  it('should handle sync processor with async processBatch', async () => {
+    const asyncProcessor = {
+      type: 'external' as const,
+      name: 'async',
+      processBatch: jest.fn().mockImplementation(() => Promise.reject(new Error('Async error'))),
+    };
+
+    batcher = createMessageBatcher([asyncProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    const consoleSpy = jest.spyOn(console, 'error');
+    batcher.info('test message');
+    batcher.flushSync();
+
+    // Wait for the next tick to handle the promise rejection
+    await Promise.resolve();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Processor async failed:',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('should handle removeAllExtraProcessors', () => {
+    const extraProcessor1 = {
+      type: 'external' as const,
+      name: 'extra1',
+      processBatch: jest.fn(),
+    };
+    const extraProcessor2 = {
+      type: 'external' as const,
+      name: 'extra2',
+      processBatch: jest.fn(),
+    };
+
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.addExtraProcessor(extraProcessor1);
+    batcher.addExtraProcessor(extraProcessor2);
+    batcher.removeAllExtraProcessors();
+
+    batcher.info('test message');
+    batcher.flushSync();
+
+    expect(extraProcessor1.processBatch).not.toHaveBeenCalled();
+    expect(extraProcessor2.processBatch).not.toHaveBeenCalled();
+  });
+
+  it('should handle empty queue in processBatch', async () => {
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    // Call processBatch with non-existent queue
+    await (batcher as any).processBatch('nonexistent');
+    expect(mockProcessor.processBatch).not.toHaveBeenCalled();
+  });
 });
