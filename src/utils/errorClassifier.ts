@@ -1,28 +1,75 @@
-// Define tuple types for better type safety
+// Define the named object interface
+export type ErrorPatternConfig = {
+  name: string;
+  pattern:
+    | RegExp
+    | ((message: string) => boolean)
+    | Promise<boolean>
+    | ((message: string) => Promise<boolean>);
+  category: string;
+  severity: 'low' | 'medium' | 'high';
+  aggregation?: {
+    windowMs: number;
+    countThreshold: number;
+  };
+};
+
+// Internal tuple type for storage
 type ErrorPattern = readonly [
-  RegExp | ((message: string) => boolean) | Promise<boolean>, // pattern can be RegExp, function, or Promise
+  (
+    | RegExp
+    | ((message: string) => boolean)
+    | Promise<boolean>
+    | ((message: string) => Promise<boolean>)
+  ),
   string, // category
   'low' | 'medium' | 'high', // severity
   [number, number]? // [windowMs, countThreshold] for aggregation
 ];
 
-// Default patterns as tuples
-const DEFAULT_ERROR_PATTERNS = [
-  [
-    /duplicate key value violates unique constraint/i,
-    'DATABASE_CONSTRAINT_VIOLATION',
-    'medium',
-    [60000, 5], // 1 minute window, 5 errors threshold
-  ],
-  [/connection refused|connection timeout/i, 'CONNECTION_ERROR', 'high'],
-  [/invalid signature|unauthorized/i, 'AUTH_ERROR', 'high'],
-] satisfies ErrorPattern[];
+// Convert config to internal pattern
+function configToPattern(config: ErrorPatternConfig): ErrorPattern {
+  return [
+    config.pattern,
+    config.category,
+    config.severity,
+    config.aggregation
+      ? [config.aggregation.windowMs, config.aggregation.countThreshold]
+      : undefined,
+  ];
+}
+
+// Default patterns as named objects
+const DEFAULT_ERROR_PATTERNS: ErrorPatternConfig[] = [
+  {
+    name: 'uniqueConstraint',
+    pattern: /duplicate key value violates unique constraint/i,
+    category: 'DATABASE_CONSTRAINT_VIOLATION',
+    severity: 'medium',
+    aggregation: {
+      windowMs: 60000,
+      countThreshold: 5,
+    },
+  },
+  {
+    name: 'connectionError',
+    pattern: /connection refused|connection timeout/i,
+    category: 'CONNECTION_ERROR',
+    severity: 'high',
+  },
+  {
+    name: 'authError',
+    pattern: /invalid signature|unauthorized/i,
+    category: 'AUTH_ERROR',
+    severity: 'high',
+  },
+];
 
 // Store custom patterns
 let customPatterns: ErrorPattern[] = [];
 
-export function addErrorPatterns(patterns: ErrorPattern[]): void {
-  customPatterns = customPatterns.concat(patterns);
+export function addErrorPatterns(patterns: ErrorPatternConfig[]): void {
+  customPatterns = customPatterns.concat(patterns.map(configToPattern));
 }
 
 export function resetErrorPatterns(): void {
@@ -31,7 +78,7 @@ export function resetErrorPatterns(): void {
 
 // Get all patterns (custom patterns take precedence)
 function getPatterns(): ErrorPattern[] {
-  return [...customPatterns, ...DEFAULT_ERROR_PATTERNS];
+  return [...customPatterns, ...DEFAULT_ERROR_PATTERNS.map(configToPattern)];
 }
 
 // Track error occurrences using arrays
@@ -72,7 +119,7 @@ export async function classifyError(
     } else if (pattern instanceof Promise) {
       matches = await pattern;
     } else {
-      matches = pattern(message);
+      matches = await pattern(message);
     }
 
     if (matches) {

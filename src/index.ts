@@ -5,7 +5,12 @@ export type { TelegramConfig } from './types';
 
 export { createConsoleProcessor } from './processors/console';
 
-export { addErrorPatterns, resetErrorPatterns } from './utils/errorClassifier';
+export {
+  addErrorPatterns,
+  resetErrorPatterns,
+  type ErrorPatternConfig,
+  classifyError,
+} from './utils/errorClassifier';
 
 export { createMessageBatcher } from './batcher';
 export type {
