@@ -47,14 +47,16 @@ export interface InternalMessageProcessor {
 
 // External processor interface
 export interface MessageProcessor {
-  type: 'external';
+  type: 'external' | 'internal';
   name: string;
-  processBatch(messages: MessageObject[]): void | Promise<void>;
-  processBatchSync?(messages: MessageObject[]): void;
+  processBatch(messages: Message[]): void | Promise<void>;
+  processBatchSync?(messages: Message[]): void;
 }
 
 // Helper type to convert external processor to internal
-export type ProcessorAdapter = (processor: MessageProcessor) => InternalMessageProcessor;
+export type ProcessorAdapter = (
+  processor: MessageProcessor
+) => InternalMessageProcessor;
 
 export interface MessageBatcher {
   info(message: string): void;

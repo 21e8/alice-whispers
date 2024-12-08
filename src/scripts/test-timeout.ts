@@ -1,10 +1,10 @@
 import { createMessageBatcher } from '../batcher.js';
-import { MessageObject, MessageProcessor } from '../types.js';
+import { MessageProcessor, Message } from '../types.js';
 
 const mockProcessor: MessageProcessor = {
   type: 'external',
   name: 'mock',
-  processBatch: async (messages: MessageObject[]) => {
+  processBatch: async (messages: Message[]) => {
     console.log('Processing batch:', messages);
   },
 };

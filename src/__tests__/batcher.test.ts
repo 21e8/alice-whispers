@@ -1,9 +1,14 @@
 import { createMessageBatcher } from '../batcher';
-import type { MessageBatcher, MessageProcessor, MessageObject } from '../types';
+import type {
+  MessageBatcher,
+  MessageProcessor,
+  MessageObject,
+  Message,
+} from '../types';
 
 describe('MessageBatcher', () => {
   let mockProcessor: MessageProcessor;
-  let processedMessages: MessageObject[];
+  let processedMessages: Message[];
   let batcher: MessageBatcher;
 
   beforeEach(() => {
@@ -46,20 +51,10 @@ describe('MessageBatcher', () => {
     await batcher.flush();
 
     expect(processBatchSpy).toHaveBeenCalledWith([
-      {
-        chatId: 'default',
-        text: 'test message',
-        level: 'info',
-        error: undefined,
-      },
+      ['default', 'test message', 'info', undefined],
     ]);
     expect(mockProcessor.processBatch).toHaveBeenCalledWith([
-      {
-        chatId: 'default',
-        text: 'test message',
-        level: 'info',
-        error: undefined,
-      },
+      ['default', 'test message', 'info', undefined],
     ]);
   });
 
@@ -73,12 +68,12 @@ describe('MessageBatcher', () => {
     await batcher.flush();
 
     expect(processedMessages).toHaveLength(1);
-    expect(processedMessages[0]).toEqual({
-      chatId: 'default',
-      text: 'Test info message',
-      level: 'info',
-      error: undefined,
-    });
+    expect(processedMessages[0]).toEqual([
+      'default',
+      'Test info message',
+      'info',
+      undefined,
+    ]);
   });
 
   it('should handle warning messages correctly', async () => {
@@ -91,12 +86,12 @@ describe('MessageBatcher', () => {
     await batcher.flush();
 
     expect(processedMessages).toHaveLength(1);
-    expect(processedMessages[0]).toEqual({
-      chatId: 'default',
-      text: 'Test warning message',
-      level: 'warning',
-      error: undefined,
-    });
+    expect(processedMessages[0]).toEqual([
+      'default',
+      'Test warning message',
+      'warning',
+      undefined,
+    ]);
   });
 
   it('should handle error messages correctly', async () => {
@@ -108,12 +103,12 @@ describe('MessageBatcher', () => {
     const testError = new Error('Test error occurred');
     batcher.error('Test error message', testError);
     await batcher.flush();
-    const result: MessageObject = {
-      chatId: 'default',
-      text: 'Test error message',
-      level: 'error',
-      error: testError,
-    };
+    const result: Message = [
+      'default',
+      'Test error message',
+      'error',
+      testError,
+    ];
     expect(processedMessages).toHaveLength(1);
     expect(processedMessages[0]).toEqual(result);
   });
@@ -181,19 +176,9 @@ describe('MessageBatcher', () => {
     jest.advanceTimersByTime(1000);
     await Promise.resolve();
 
-    const messages: MessageObject[] = [
-      {
-        chatId: 'default',
-        text: 'message 1',
-        level: 'info',
-        error: undefined,
-      },
-      {
-        chatId: 'default',
-        text: 'message 2',
-        level: 'info',
-        error: undefined,
-      },
+    const messages: Message[] = [
+      ['default', 'message 1', 'info', undefined],
+      ['default', 'message 2', 'info', undefined],
     ];
 
     expect(processBatchSpy).toHaveBeenCalledWith(messages);

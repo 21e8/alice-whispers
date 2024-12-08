@@ -7,16 +7,60 @@ import {
   MessageObject,
   InternalMessageProcessor,
 } from './types';
-// Export for testing
 let globalBatcher: MessageBatcher | null = null;
 
-// Helper functions for converting between formats
-function messageToObject([chatId, text, level, error]: Message): MessageObject {
-  return { chatId, text, level, error };
+function objectToMessage({
+  chatId,
+  text,
+  level,
+  error,
+}: MessageObject): Message {
+  return [chatId, text, level, error];
 }
 
-function messagesToObjects(messages: Message[]): MessageObject[] {
-  return messages.map(messageToObject);
+function isMessageObjectArray(
+  messages: MessageObject[] | Message[]
+): messages is MessageObject[] {
+  return 'chatId' in messages[0];
+}
+
+const convertProcessBatch = async (
+  processor: MessageProcessor,
+  messages: MessageObject[] | Message[]
+) => {
+  if (!processor.processBatch) {
+    throw new Error('processBatch is not a function');
+  }
+  if (isMessageObjectArray(messages)) {
+    await processor.processBatch(
+      messages.map((msg) => [msg.chatId, msg.text, msg.level, msg.error])
+    );
+  } else {
+    await processor.processBatch(messages);
+  }
+};
+
+const convertProcessBatchSync = (
+  processor: MessageProcessor,
+  messages: MessageObject[] | Message[]
+) => {
+  if (isMessageObjectArray(messages)) {
+    (processor.processBatchSync || processor.processBatch)(
+      messages.map(objectToMessage)
+    );
+  } else {
+    (processor.processBatchSync || processor.processBatch)(messages);
+  }
+};
+
+function adaptProcessor(processor: MessageProcessor): MessageProcessor {
+  return {
+    type: processor.type,
+    name: processor.name,
+    processBatch: (messages) => convertProcessBatch(processor, messages),
+    processBatchSync: (messages) =>
+      convertProcessBatchSync(processor, messages),
+  };
 }
 
 export function createMessageBatcher(
@@ -58,7 +102,7 @@ export function createMessageBatcher(
       console.error(`Processor ${processor.name} already exists`);
       return;
     }
-    extraProcessors.push(processor);
+    extraProcessors.push(adaptProcessor(processor));
     processorNames.add(processor.name);
   }
 
@@ -76,7 +120,7 @@ export function createMessageBatcher(
       console.error(`Processor ${processor.name} not found`);
       return;
     }
-    extraProcessors = extraProcessors.filter((p) => p !== processor);
+    extraProcessors = extraProcessors.filter((p) => p.name !== processor.name);
     processorNames.delete(processor.name);
   }
 
@@ -160,11 +204,7 @@ export function createMessageBatcher(
       if (typeof processor.processBatch !== 'function') {
         throw new Error('processBatch is not a function');
       }
-      if (processor.type === 'external') {
-        await processor.processBatch(messagesToObjects(batch));
-      } else {
-        await processor.processBatch(batch);
-      }
+      await processor.processBatch(batch);
     } catch (error) {
       console.error(`Processor ${processor.name} failed:`, error);
     }
@@ -200,15 +240,11 @@ export function createMessageBatcher(
     for (const processor of processors) {
       try {
         if (processor.processBatchSync) {
-          if (processor.type === 'external') {
-            processor.processBatchSync(messagesToObjects(batch));
-          } else {
-            processor.processBatchSync(batch);
-          }
+          processor.processBatchSync(batch);
         } else {
           if (processor.type === 'external') {
             try {
-              const result = processor.processBatch(messagesToObjects(batch));
+              const result = processor.processBatch(batch);
               if (result instanceof Promise) {
                 result.catch((error: Error) => {
                   console.error(`Processor ${processor.name} failed:`, error);
