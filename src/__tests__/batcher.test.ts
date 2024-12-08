@@ -21,6 +21,7 @@ describe('MessageBatcher', () => {
       batcher.destroy();
     }
     jest.clearAllMocks();
+    jest.clearAllTimers();
   });
 
   it('should process messages with concurrent processors', async () => {
@@ -136,24 +137,6 @@ describe('MessageBatcher', () => {
     expect(extraProcessor.processBatch).toHaveBeenCalledTimes(1);
   });
 
-  it('should handle processor removal with invalid name', async () => {
-    const invalidProcessor = {
-      name: 'invalid',
-      processBatch: jest.fn(),
-    };
-
-    batcher = createMessageBatcher([mockProcessor], {
-      maxBatchSize: 5,
-      maxWaitMs: 100,
-    });
-
-    // Should log error and not add processor
-    batcher.addExtraProcessor(invalidProcessor);
-    batcher.info('test message');
-    await batcher.flush();
-
-    expect(invalidProcessor.processBatch).not.toHaveBeenCalled();
-  });
 
   it('should handle processor removal with invalid name', async () => {
     const invalidProcessor = {
@@ -255,8 +238,9 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle batch processing errors', async () => {
+    // resetGlobalBatcher();
     const errorProcessor = {
-      name: 'mock',
+      name: 'error',
       processBatch: undefined as any,
     };
 
@@ -278,13 +262,13 @@ describe('MessageBatcher', () => {
 
   it('should handle multiple concurrent processors with different speeds', async () => {
     const slowProcessor = {
-      name: 'slow',
+      name: 'processor1',
       processBatch: jest.fn().mockImplementation(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 50));
       }),
     };
     const fastProcessor = {
-      name: 'fast',
+      name: 'processor2',
       processBatch: jest.fn().mockResolvedValue(undefined),
     };
 

@@ -8,6 +8,10 @@ import {
 
 // Export for testing
 let globalBatcher: MessageBatcher | null = null;
+const resetGlobalBatcher = () => {
+  globalBatcher = null;
+};
+
 export function createMessageBatcher(
   processors: MessageProcessor[],
   config: BatcherConfig
@@ -209,6 +213,9 @@ export function createMessageBatcher(
     }
     timers.clear();
     queues.clear();
+    extraProcessors = [];
+    processorNames.clear();
+    globalBatcher = null;
   }
 
   startProcessing();
