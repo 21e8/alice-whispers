@@ -1,8 +1,8 @@
+import { ErrorPatternConfig } from '../../types';
 import {
   addErrorPatterns,
   classifyError,
   resetErrorPatterns,
-  type ErrorPatternConfig,
   formatClassifiedError,
   ClassifiedError,
 } from '../../utils/errorClassifier';

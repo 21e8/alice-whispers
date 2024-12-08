@@ -104,3 +104,33 @@ export type Processor = {
     config?: ProcessorConfig
   ) => Promise<ProcessorResult>;
 };
+
+
+// Define the named object interface
+export type ErrorPatternConfig = {
+  readonly name: string;
+  readonly pattern:
+    | RegExp
+    | ((message: string) => boolean)
+    | Promise<boolean>
+    | ((message: string) => Promise<boolean>);
+  readonly category: string;
+  readonly severity: SeverityLevel;
+  readonly aggregation?: {
+    readonly windowMs: number;
+    readonly countThreshold: number;
+  };
+};
+
+// Internal tuple type for storage
+export type ErrorPattern = readonly [
+  (
+    | RegExp
+    | ((message: string) => boolean)
+    | Promise<boolean>
+    | ((message: string) => Promise<boolean>)
+  ),
+  string, // category
+  SeverityLevel, // severity
+  [number, number]? // [windowMs, countThreshold] for aggregation
+];

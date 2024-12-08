@@ -1,7 +1,7 @@
 export * from './types';
 
 export { createTelegramProcessor } from './processors/telegram';
-export type { TelegramConfig } from './types';
+export type { TelegramConfig, ErrorPatternConfig, ErrorPattern } from './types';
 
 export { createCustomProcessor } from './processors/custom';
 
@@ -10,7 +10,6 @@ export { createConsoleProcessor } from './processors/console';
 export {
   addErrorPatterns,
   resetErrorPatterns,
-  type ErrorPatternConfig,
   classifyError,
 } from './utils/errorClassifier';
 

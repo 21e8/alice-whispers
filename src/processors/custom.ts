@@ -1,7 +1,4 @@
-// import { adaptPadaptProcessor, rocessor } from '../batcher';
-import { Message } from '../types';
-
-import { MessageProcessor } from '../types';
+import type { Message, MessageProcessor } from '../types';
 
 export function createCustomProcessor({
   name,
