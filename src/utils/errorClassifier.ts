@@ -109,8 +109,6 @@ export async function classifyError(
   const now = Date.now();
 
   const patterns = getPatterns();
-  console.log('Patterns:', patterns);
-  console.log('Message:', message);
 
   for (const [pattern, category, severity, aggregation] of patterns) {
     let matches = false;

@@ -17,8 +17,9 @@ describe('TelegramProcessor', () => {
         json: () => Promise.resolve({}),
       } as Response)
     );
-    // Silence console.log except for specific tests
+    // Silence console output except for specific tests
     jest.spyOn(console, 'log').mockImplementation();
+    jest.spyOn(console, 'error').mockImplementation();
   });
 
   afterEach(() => {
@@ -64,6 +65,7 @@ describe('TelegramProcessor', () => {
   });
 
   it('should throw error on failed API response', async () => {
+    const consoleSpy = jest.spyOn(console, 'error');
     // Updated mock implementation for failed response
     (global.fetch as jest.Mock).mockImplementationOnce(() =>
       Promise.resolve({
@@ -85,6 +87,15 @@ describe('TelegramProcessor', () => {
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
       'Telegram API error: Bad Request - Bad Request: message text is empty'
+    );
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[Telegram] API Response:',
+      expect.objectContaining({
+        ok: false,
+        error_code: 400,
+        description: expect.any(String)
+      })
     );
   });
 

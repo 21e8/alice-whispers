@@ -20,6 +20,7 @@ export interface TelegramConfig {
 }
 
 export interface MessageProcessor {
+  name: string;
   processBatch(messages: Message[]): void | Promise<void>;
   processBatchSync?(messages: Message[]): void;
 }
@@ -33,6 +34,10 @@ export interface MessageBatcher {
   flush(): Promise<void>;
   flushSync(): void;
   destroy(): void;
+  queues: Map<string, Message[]>;
+  timers: Map<string, NodeJS.Timeout>;
+  addExtraProcessor(processor: MessageProcessor): void;
+  removeExtraProcessor(processor: MessageProcessor): void;
 }
 
 export type ProcessorOptions = {

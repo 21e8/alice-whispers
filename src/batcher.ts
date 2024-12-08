@@ -7,21 +7,44 @@ import {
 } from './types';
 
 // Export for testing
-export const globalQueues: Map<string, Message[]> = new Map();
-export const timers: Map<string, NodeJS.Timeout> = new Map();
-
+let globalBatcher: MessageBatcher | null = null;
 export function createMessageBatcher(
   processors: MessageProcessor[],
   config: Required<BatcherConfig>
 ): MessageBatcher {
+  if (globalBatcher) {
+    return globalBatcher;
+  }
+
   let processInterval: NodeJS.Timeout | null = null;
+  const queues: Map<string, Message[]> = new Map();
+  const timers: Map<string, NodeJS.Timeout> = new Map();
+  let extraProcessors: MessageProcessor[] = [];
+  const processorNames = new Set(processors.map((p) => p.name));
 
   function startProcessing(): void {
-    processInterval = setInterval(() => {
-      for (const chatId of globalQueues.keys()) {
-        processBatch(chatId);
+    processInterval = setInterval(async () => {
+      for (const chatId of queues.keys()) {
+        await processBatch(chatId);
       }
     }, config.maxWaitMs);
+  }
+
+  function addExtraProcessor(processor: MessageProcessor): void {
+    if (!processorNames.has(processor.name)) {
+      console.error(`Processor ${processor.name} not found in main processors`);
+      return;
+    }
+    extraProcessors.push(processor);
+  }
+
+  function removeExtraProcessor(processor: MessageProcessor): void {
+    if (!processorNames.has(processor.name)) {
+      console.error(`Processor ${processor.name} not found in main processors`);
+      return;
+    }
+    extraProcessors = extraProcessors.filter((p) => p !== processor);
+    processorNames.delete(processor.name);
   }
 
   function info(message: string): void {
@@ -35,17 +58,18 @@ export function createMessageBatcher(
   function error(message: string, error?: Error | string): void {
     queueMessage(message, 'error', error);
   }
+
   function queueMessage(
     message: string,
     level: NotificationLevel,
     error?: Error | string
   ): void {
     const chatId = 'default';
-    if (!globalQueues.has(chatId)) {
-      globalQueues.set(chatId, []);
+    if (!queues.has(chatId)) {
+      queues.set(chatId, []);
     }
 
-    const queue = globalQueues.get(chatId) ?? [];
+    const queue = queues.get(chatId) ?? [];
     queue.push({ chatId, text: message, level, error });
 
     // Set a timeout to process this batch if maxBatchSize isn't reached
@@ -64,8 +88,24 @@ export function createMessageBatcher(
     }
   }
 
+  // Helper function for concurrent processing
+  async function processInBatches<T>(
+    items: T[],
+    concurrency: number,
+    processor: (item: T) => Promise<void>
+  ): Promise<void> {
+    const chunks = [];
+    for (let i = 0; i < items.length; i += concurrency) {
+      chunks.push(items.slice(i, i + concurrency));
+    }
+
+    for (const chunk of chunks) {
+      await Promise.all(chunk.map(processor));
+    }
+  }
+
   async function processBatch(chatId: string): Promise<void> {
-    const queue = globalQueues.get(chatId);
+    const queue = queues.get(chatId);
     if (!queue?.length) return;
 
     // Clear any pending timer for this batch
@@ -76,53 +116,57 @@ export function createMessageBatcher(
     }
 
     const batch = [...queue];
-    globalQueues.set(chatId, []);
+    queues.set(chatId, []);
 
-    const results = await Promise.allSettled(
-      processors.map((processor) => processor.processBatch(batch))
-    );
-
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      if (result.status === 'rejected') {
-        console.error(`Processor ${i} failed:`, result.reason);
-      }
+    try {
+      const allProcessors = [...processors, ...extraProcessors];
+      await processInBatches(
+        allProcessors,
+        3, // Process 3 processors concurrently
+        async (processor) => {
+          try {
+            await processor.processBatch(batch);
+          } catch (error) {
+            console.error(`Processor ${processor.name} failed:`, error);
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error processing batch:', error);
     }
   }
 
   function processBatchSync(chatId: string): void {
-    const queue = globalQueues.get(chatId);
+    const queue = queues.get(chatId);
     if (!queue?.length) return;
 
     const batch = [...queue];
-    globalQueues.set(chatId, []);
+    queues.set(chatId, []);
 
-    for (const item of batch) {
-      for (const processor of processors) {
-        try {
-          if (processor.processBatchSync) {
-            processor.processBatchSync([item]);
-          } else {
-            // Handle async processBatch by ignoring the Promise
-            (processor.processBatch([item]) as Promise<void>).catch((error) => {
-              console.error(`Processor failed:`, error);
-            });
-          }
-        } catch (error) {
-          console.error(`Processor failed:`, error);
+    for (const processor of processors) {
+      try {
+        if (processor.processBatchSync) {
+          processor.processBatchSync(batch);
+        } else {
+          // Handle async processBatch by ignoring the Promise
+          (processor.processBatch(batch) as Promise<void>).catch((error) => {
+            console.error(`Processor ${processor.name} failed:`, error);
+          });
         }
+      } catch (error) {
+        console.error(`Processor ${processor.name} failed:`, error);
       }
     }
   }
 
   async function flush(): Promise<void> {
-    for (const chatId of globalQueues.keys()) {
+    for (const chatId of queues.keys()) {
       await processBatch(chatId);
     }
   }
 
   function flushSync(): void {
-    for (const chatId of globalQueues.keys()) {
+    for (const chatId of queues.keys()) {
       processBatchSync(chatId);
     }
   }
@@ -136,25 +180,24 @@ export function createMessageBatcher(
       clearTimeout(timer);
     }
     timers.clear();
+    queues.clear();
   }
 
-  // Start processing on creation
   startProcessing();
 
-  // Return a new instance
-  return {
+  globalBatcher = {
     info,
     warning,
     error,
     queueMessage,
-    processBatch: processBatch,
+    processBatch,
     flush,
     flushSync,
     destroy,
+    queues,
+    timers,
+    addExtraProcessor,
+    removeExtraProcessor,
   };
-}
-
-// Reset function now only clears the queue
-export function resetBatcher(): void {
-  globalQueues.clear();
+  return globalBatcher;
 }

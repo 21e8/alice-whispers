@@ -18,5 +18,5 @@ export function createConsoleProcessor(): MessageProcessor {
     }
   }
 
-  return { processBatch };
-} 
+  return { processBatch, name: 'console' };
+}

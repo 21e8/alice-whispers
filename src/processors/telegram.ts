@@ -93,5 +93,6 @@ export function createTelegramProcessor(
 
   return {
     processBatch,
+    name: 'telegram',
   };
 }
