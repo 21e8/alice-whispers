@@ -1,5 +1,5 @@
 import { createMessageBatcher } from '../batcher.js';
-import { MessageProcessor, Message } from '../types.js';
+import type { Message, MessageProcessor } from '../types.js';
 
 const mockProcessor: MessageProcessor = {
   type: 'external',

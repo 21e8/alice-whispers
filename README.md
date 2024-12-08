@@ -1,24 +1,25 @@
-# 0xAlice Telegram Bot
+# Alice Whispers
 
-High-performance batched notification system for Telegram, optimized for high-volume messaging.
+Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification.
 
 ## Features
 
+- 🎭 Elegant: Beautiful message formatting and intelligent error handling
 - 🚀 High Performance: Uses array-based message format for minimal memory overhead
-- 🔄 Message Batching: Automatically batches messages to reduce API calls
+- 🔄 Smart Batching: Automatically batches messages to reduce API calls
 - ⚡ Concurrent Processing: Supports multiple processors running in parallel
 - 🔌 Extensible: Easy to add custom message processors
 - 🎯 Type-Safe: Written in TypeScript with full type coverage
-- 🛡️ Error Handling: Built-in error classification and formatting
+- 🛡️ Error Classification: Built-in error pattern matching and aggregation
 
 ## Installation
 
 ```bash
 # npm
-npm install 0xalice-tgram-bot
+npm install alice-whispers
 
 # yarn
-yarn add 0xalice-tgram-bot
+yarn add alice-whispers
 ```
 
 ## Quick Start
@@ -27,7 +28,7 @@ yarn add 0xalice-tgram-bot
 import {
   createMessageBatcher,
   createTelegramProcessor,
-} from '0xalice-tgram-bot';
+} from 'alice-whispers';
 
 // Create a Telegram processor
 const telegramProcessor = createTelegramProcessor({
@@ -60,7 +61,7 @@ batcher.destroy();
 Create your own message processors:
 
 ```typescript
-import { createCustomProcessor, type Message } from '0xalice-tgram-bot';
+import { createCustomProcessor, type Message } from 'alice-whispers';
 
 const consoleProcessor = createCustomProcessor({
   name: 'console',
@@ -94,7 +95,7 @@ type Message = [
 Built-in error classification and formatting:
 
 ```typescript
-import { classifyError, formatClassifiedError } from '0xalice-tgram-bot';
+import { classifyError, formatClassifiedError } from 'alice-whispers';
 
 try {
   // ... your code ...

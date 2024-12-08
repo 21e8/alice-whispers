@@ -1,7 +1,6 @@
 export * from './types';
 
 export { createTelegramProcessor } from './processors/telegram';
-export type { TelegramConfig, ErrorPatternConfig, ErrorPattern } from './types';
 
 export { createCustomProcessor } from './processors/custom';
 
