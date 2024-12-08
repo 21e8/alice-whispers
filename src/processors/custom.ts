@@ -1,4 +1,4 @@
-import { Message } from '../types';
+import { MessageObject } from '../types';
 
 import { MessageProcessor } from '../types';
 
@@ -8,10 +8,11 @@ export function createCustomProcessor({
   processBatchSync,
 }: {
   name: string;
-  processBatch: (messages: Message[]) => Promise<void>;
-  processBatchSync?: (messages: Message[]) => void;
+  processBatch: (messages: MessageObject[]) => Promise<void>;
+  processBatchSync?: (messages: MessageObject[]) => void;
 }): MessageProcessor {
   return {
+    type: 'external',
     name,
     processBatch: processBatch || processBatchSync,
     processBatchSync: processBatchSync || processBatch,

@@ -1,15 +1,16 @@
 import { createMessageBatcher } from '../batcher';
-import type { Message, MessageBatcher, MessageProcessor } from '../types';
+import type { MessageBatcher, MessageProcessor, MessageObject } from '../types';
 
 describe('MessageBatcher', () => {
   let mockProcessor: MessageProcessor;
-  let processedMessages: Message[];
+  let processedMessages: MessageObject[];
   let batcher: MessageBatcher;
 
   beforeEach(() => {
     jest.useFakeTimers();
     processedMessages = [];
     mockProcessor = {
+      type: 'external' as const,
       name: 'mock',
       processBatch: jest.fn(async (messages) => {
         processedMessages = messages;
@@ -29,6 +30,7 @@ describe('MessageBatcher', () => {
   it('should process messages with concurrent processors', async () => {
     const processBatchSpy = jest.fn();
     const extraProcessor = {
+      type: 'external' as const,
       name: 'extra',
       processBatch: processBatchSpy,
     };
@@ -44,10 +46,20 @@ describe('MessageBatcher', () => {
     await batcher.flush();
 
     expect(processBatchSpy).toHaveBeenCalledWith([
-      ['default', 'test message', 'info', undefined]
+      {
+        chatId: 'default',
+        text: 'test message',
+        level: 'info',
+        error: undefined,
+      },
     ]);
     expect(mockProcessor.processBatch).toHaveBeenCalledWith([
-      ['default', 'test message', 'info', undefined]
+      {
+        chatId: 'default',
+        text: 'test message',
+        level: 'info',
+        error: undefined,
+      },
     ]);
   });
 
@@ -61,7 +73,12 @@ describe('MessageBatcher', () => {
     await batcher.flush();
 
     expect(processedMessages).toHaveLength(1);
-    expect(processedMessages[0]).toEqual(['default', 'Test info message', 'info', undefined]);
+    expect(processedMessages[0]).toEqual({
+      chatId: 'default',
+      text: 'Test info message',
+      level: 'info',
+      error: undefined,
+    });
   });
 
   it('should handle warning messages correctly', async () => {
@@ -74,7 +91,12 @@ describe('MessageBatcher', () => {
     await batcher.flush();
 
     expect(processedMessages).toHaveLength(1);
-    expect(processedMessages[0]).toEqual(['default', 'Test warning message', 'warning', undefined]);
+    expect(processedMessages[0]).toEqual({
+      chatId: 'default',
+      text: 'Test warning message',
+      level: 'warning',
+      error: undefined,
+    });
   });
 
   it('should handle error messages correctly', async () => {
@@ -86,13 +108,19 @@ describe('MessageBatcher', () => {
     const testError = new Error('Test error occurred');
     batcher.error('Test error message', testError);
     await batcher.flush();
-
+    const result: MessageObject = {
+      chatId: 'default',
+      text: 'Test error message',
+      level: 'error',
+      error: testError,
+    };
     expect(processedMessages).toHaveLength(1);
-    expect(processedMessages[0]).toEqual(['default', 'Test error message', 'error', testError]);
+    expect(processedMessages[0]).toEqual(result);
   });
 
   it('should handle processor removal', async () => {
     const extraProcessor = {
+      type: 'external' as const,
       name: 'extra',
       processBatch: jest.fn(),
     };
@@ -115,9 +143,9 @@ describe('MessageBatcher', () => {
     expect(extraProcessor.processBatch).toHaveBeenCalledTimes(1);
   });
 
-
   it('should handle processor removal with invalid name', async () => {
     const invalidProcessor = {
+      type: 'external' as const,
       name: 'invalid',
       processBatch: jest.fn(),
     };
@@ -135,6 +163,7 @@ describe('MessageBatcher', () => {
   it('should process batch when maxBatchSize is reached', async () => {
     const processBatchSpy = jest.fn();
     const testProcessor = {
+      type: 'external' as const,
       name: 'mock',
       processBatch: processBatchSpy,
     };
@@ -152,14 +181,27 @@ describe('MessageBatcher', () => {
     jest.advanceTimersByTime(1000);
     await Promise.resolve();
 
-    expect(processBatchSpy).toHaveBeenCalledWith([
-      ['default', 'message 1', 'info', undefined],
-      ['default', 'message 2', 'info', undefined]
-    ]);
+    const messages: MessageObject[] = [
+      {
+        chatId: 'default',
+        text: 'message 1',
+        level: 'info',
+        error: undefined,
+      },
+      {
+        chatId: 'default',
+        text: 'message 2',
+        level: 'info',
+        error: undefined,
+      },
+    ];
+
+    expect(processBatchSpy).toHaveBeenCalledWith(messages);
   });
 
   it('should handle sync processor errors', async () => {
     const errorProcessor = {
+      type: 'external' as const,
       name: 'mock',
       processBatchSync: () => {
         throw new Error('Sync error');
@@ -187,6 +229,7 @@ describe('MessageBatcher', () => {
 
   it('should handle async processor errors', async () => {
     const errorProcessor = {
+      type: 'external' as const,
       name: 'mock',
       processBatch: async () => {
         throw new Error('Async error');
@@ -212,6 +255,7 @@ describe('MessageBatcher', () => {
   it('should handle batch processing errors', async () => {
     // resetGlobalBatcher();
     const errorProcessor = {
+      type: 'external' as const,
       name: 'error',
       processBatch: undefined as any,
     };
@@ -234,12 +278,14 @@ describe('MessageBatcher', () => {
 
   it('should handle multiple concurrent processors with different speeds', async () => {
     const slowProcessor = {
+      type: 'external' as const,
       name: 'processor1',
       processBatch: jest.fn().mockImplementation(async () => {
         await Promise.resolve();
       }),
     };
     const fastProcessor = {
+      type: 'external' as const,
       name: 'processor2',
       processBatch: jest.fn().mockResolvedValue(undefined),
     };

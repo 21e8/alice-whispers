@@ -7,7 +7,7 @@ export type SeverityLevel =
   | 'high'
   | (string & NonNullable<unknown>);
 
-// Message array format: [chatId, text, level, error?]
+// Internal array format
 export type Message = [
   string, // chatId
   string, // text
@@ -15,10 +15,19 @@ export type Message = [
   (Error | string)? // optional error
 ];
 
+// External object format for processor implementations
+export type MessageObject = {
+  chatId: string;
+  text: string;
+  level: NotificationLevel;
+  error?: Error | string;
+};
+
 export type BatcherConfig = {
   maxBatchSize: number;
   maxWaitMs: number;
   concurrentProcessors?: number;
+  singleton?: boolean;
 };
 
 export interface TelegramConfig {
@@ -28,11 +37,24 @@ export interface TelegramConfig {
   development?: boolean;
 }
 
-export interface MessageProcessor {
+// Internal processor interface
+export interface InternalMessageProcessor {
+  type: 'internal';
   name: string;
   processBatch(messages: Message[]): void | Promise<void>;
   processBatchSync?(messages: Message[]): void;
 }
+
+// External processor interface
+export interface MessageProcessor {
+  type: 'external';
+  name: string;
+  processBatch(messages: MessageObject[]): void | Promise<void>;
+  processBatchSync?(messages: MessageObject[]): void;
+}
+
+// Helper type to convert external processor to internal
+export type ProcessorAdapter = (processor: MessageProcessor) => InternalMessageProcessor;
 
 export interface MessageBatcher {
   info(message: string): void;

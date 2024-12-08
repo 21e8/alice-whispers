@@ -29,9 +29,9 @@ describe('TelegramProcessor', () => {
   it('should send formatted messages to telegram API', async () => {
     const processor = createTelegramProcessor(defaultConfig);
     const messages: Message[] = [
-      ['default', 'info message', 'info'],
-      ['default', 'warning message', 'warning'],
-      ['default', 'error message', 'error'],
+      ['default', 'info message', 'info', undefined],
+      ['default', 'warning message', 'warning', undefined],
+      ['default', 'error message', 'error', undefined],
     ];
 
     await processor.processBatch(messages);
@@ -55,7 +55,9 @@ describe('TelegramProcessor', () => {
       ...defaultConfig,
       development: true,
     });
-    const messages: Message[] = [['default', 'test message', 'info']];
+    const messages: Message[] = [
+      ['default', 'test message', 'info', undefined],
+    ];
 
     await processor.processBatch(messages);
 
@@ -80,7 +82,9 @@ describe('TelegramProcessor', () => {
     );
 
     const processor = createTelegramProcessor(defaultConfig);
-    const messages: Message[] = [['default', 'test message', 'info']];
+    const messages: Message[] = [
+      ['default', 'test message', 'info', undefined],
+    ];
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
       'Telegram API error: Bad Request - Bad Request: message text is empty'
@@ -111,7 +115,9 @@ describe('TelegramProcessor', () => {
       ...defaultConfig,
       development: true,
     });
-    const messages: Message[] = [['default', 'test message', 'info']];
+    const messages: Message[] = [
+      ['default', 'test message', 'info', undefined],
+    ];
 
     await processor.processBatch(messages);
 
@@ -137,7 +143,7 @@ describe('TelegramProcessor', () => {
     );
 
     const processor = createTelegramProcessor(defaultConfig);
-    const messages = [['default', 'test', 'info']] as Message[];
+    const messages = [['default', 'test', 'info', undefined]] as Message[];
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
       'Telegram API error: Unknown Error - Unknown Error'

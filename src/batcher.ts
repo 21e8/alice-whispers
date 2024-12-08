@@ -4,26 +4,43 @@ import {
   type NotificationLevel,
   type MessageProcessor,
   type MessageBatcher,
+  MessageObject,
+  InternalMessageProcessor,
 } from './types';
 // Export for testing
 let globalBatcher: MessageBatcher | null = null;
 
+// Helper functions for converting between formats
+function messageToObject([chatId, text, level, error]: Message): MessageObject {
+  return { chatId, text, level, error };
+}
+
+function messagesToObjects(messages: Message[]): MessageObject[] {
+  return messages.map(messageToObject);
+}
+
 export function createMessageBatcher(
-  processors: MessageProcessor[],
+  processors: InternalMessageProcessor[] | MessageProcessor[],
   config: BatcherConfig
 ): MessageBatcher {
-  if (globalBatcher) {
+  const isSingleton = config.singleton ?? true;
+  if (isSingleton && globalBatcher) {
     return globalBatcher;
   }
-
   let processInterval: NodeJS.Timeout | null = null;
   const queues: Map<string, Message[]> = new Map();
   const timers: Map<string, NodeJS.Timeout> = new Map();
-  let extraProcessors: MessageProcessor[] = [];
-  const processorNames = new Set(processors.map((p) => p.name));
+  let extraProcessors: (MessageProcessor | InternalMessageProcessor)[] = [];
+  const processorNames = new Set<string>();
   const concurrentProcessors = config.concurrentProcessors ?? 3;
   const maxBatchSize = config.maxBatchSize ?? 100;
   const maxWaitMs = config.maxWaitMs ?? 60_000; // 1 minute
+
+  // Initialize with main processors
+  processors.forEach((processor) => {
+    processorNames.add(processor.name);
+  });
+  // extraProcessors = [...processors];
 
   function startProcessing(): void {
     if (processInterval) {
@@ -47,7 +64,9 @@ export function createMessageBatcher(
 
   function removeAllExtraProcessors(): void {
     for (const processor of extraProcessors) {
-      removeExtraProcessor(processor);
+      if (processor.type === 'external') {
+        removeExtraProcessor(processor);
+      }
     }
     extraProcessors = [];
   }
@@ -133,15 +152,19 @@ export function createMessageBatcher(
     }
   }
 
-  const exhaustProcessor = async (
-    processor: MessageProcessor,
+  const exhaustBatcher = async (
+    processor: MessageProcessor | InternalMessageProcessor,
     batch: Message[]
   ) => {
     try {
       if (typeof processor.processBatch !== 'function') {
         throw new Error('processBatch is not a function');
       }
-      await processor.processBatch(batch);
+      if (processor.type === 'external') {
+        await processor.processBatch(messagesToObjects(batch));
+      } else {
+        await processor.processBatch(batch);
+      }
     } catch (error) {
       console.error(`Processor ${processor.name} failed:`, error);
     }
@@ -163,7 +186,7 @@ export function createMessageBatcher(
 
     const allProcessors = [...processors, ...extraProcessors];
     await concurrentExhaust(allProcessors, concurrentProcessors, (processor) =>
-      exhaustProcessor(processor, batch)
+      exhaustBatcher(processor, batch)
     );
   }
 
@@ -177,12 +200,24 @@ export function createMessageBatcher(
     for (const processor of processors) {
       try {
         if (processor.processBatchSync) {
-          processor.processBatchSync(batch);
+          if (processor.type === 'external') {
+            processor.processBatchSync(messagesToObjects(batch));
+          } else {
+            processor.processBatchSync(batch);
+          }
         } else {
-          // Handle async processBatch by ignoring the Promise
-          (processor.processBatch(batch) as Promise<void>).catch((error) => {
-            console.error(`Processor ${processor.name} failed:`, error);
-          });
+          if (processor.type === 'external') {
+            try {
+              const result = processor.processBatch(messagesToObjects(batch));
+              if (result instanceof Promise) {
+                result.catch((error: Error) => {
+                  console.error(`Processor ${processor.name} failed:`, error);
+                });
+              }
+            } catch (error) {
+              console.error(`Processor ${processor.name} failed:`, error);
+            }
+          }
         }
       } catch (error) {
         console.error(`Processor ${processor.name} failed:`, error);

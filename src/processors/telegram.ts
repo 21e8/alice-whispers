@@ -1,5 +1,7 @@
 import type {
+  InternalMessageProcessor,
   Message,
+  MessageObject,
   MessageProcessor,
   NotificationLevel,
   TelegramConfig,
@@ -10,7 +12,7 @@ import {
   formatClassifiedError,
 } from '../utils/errorClassifier';
 
-const EMOJIS = new Map<NotificationLevel, string>([
+const EMOJIS = new Map<NotificationLevel | string, string>([
   ['error', '🚨'],
   ['warning', '⚠️'],
   ['info', 'ℹ️'],
@@ -24,7 +26,7 @@ type TelegramApiError = {
 
 export function createTelegramProcessor(
   config: TelegramConfig
-): MessageProcessor {
+): InternalMessageProcessor {
   const { botToken, chatId, development = false } = config;
   const baseUrl = `https://api.telegram.org/bot${botToken}`;
 
@@ -95,5 +97,6 @@ export function createTelegramProcessor(
   return {
     processBatch,
     name: 'telegram',
+    type: 'internal',
   };
 }
