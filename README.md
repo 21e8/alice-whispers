@@ -1,10 +1,17 @@
 # Alice Whispers
 
-Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification.
+Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification. Designed to efficiently handle thousands of messages by intelligently batching and aggregating them into meaningful, actionable updates.
+
+## Key Benefits
+
+- 🚀 **High-Volume Processing** - Efficiently funnel thousands of messages into smart batches, reducing noise and system load
+- 📊 **Smart Aggregation** - Automatically combines similar messages and errors within configurable time windows
+- 🎯 **Noise Reduction** - Turn message floods into meaningful, actionable updates
+- 🔄 **Resource Efficient** - Optimized for minimal memory usage with array-based message format
+- 🎭 **Zero Dependencies** - Only TypeScript as a peer dependency, keeping your project lean and secure
 
 ## Features
 
-- 🎭 **Zero Dependencies** - Only TypeScript as a peer dependency, keeping your project lean and secure
 - 🔄 Smart message batching with configurable batch sizes and timing
 - 🎯 Intelligent error classification and pattern matching
 - 📊 Error aggregation with customizable time windows
@@ -55,6 +62,54 @@ await batcher.flush();
 
 // Clean up when done
 batcher.destroy();
+```
+
+## High-Volume Example
+
+Handle thousands of messages with smart batching and aggregation:
+
+```typescript
+import { createMessageBatcher, createTelegramProcessor, addErrorPatterns } from 'alice-whispers';
+
+// Configure error patterns for aggregation
+addErrorPatterns([
+  {
+    name: 'rateLimit',
+    pattern: /rate limit exceeded/i,
+    category: 'RATE_LIMIT',
+    severity: 'high',
+    aggregation: {
+      windowMs: 60000,    // 1 minute window
+      countThreshold: 10  // Aggregate after 10 occurrences
+    }
+  }
+]);
+
+// Create processor with larger batch size
+const batcher = createMessageBatcher({
+  maxBatchSize: 100,     // Process in batches of 100
+  maxWaitMs: 30000,      // Or every 30 seconds
+  concurrentProcessors: 3 // Run multiple processors in parallel
+});
+
+// Add your processors
+batcher.addProcessor(createTelegramProcessor({
+  botToken: process.env.TELEGRAM_BOT_TOKEN!,
+  chatId: process.env.TELEGRAM_CHAT_ID!
+}));
+
+// Simulate high-volume message processing
+for (let i = 0; i < 1000; i++) {
+  try {
+    // Your application logic
+    throw new Error('rate limit exceeded');
+  } catch (error) {
+    batcher.error(`Operation ${i} failed`, error);
+  }
+}
+
+// Instead of 1000 separate messages, you'll get aggregated updates like:
+// "🚨 [AGGREGATED] 127 similar RATE_LIMIT errors in last 60s"
 ```
 
 ## Custom Processors
