@@ -10,11 +10,11 @@ import {
   formatClassifiedError,
 } from '../utils/errorClassifier';
 
-const EMOJIS: Record<NotificationLevel, string> = {
-  error: '🚨',
-  warning: '⚠️',
-  info: 'ℹ️',
-};
+const EMOJIS = new Map<NotificationLevel, string>([
+  ['error', '🚨'],
+  ['warning', '⚠️'],
+  ['info', 'ℹ️'],
+]);
 
 type TelegramApiError = {
   ok: boolean;
@@ -41,16 +41,17 @@ export function createTelegramProcessor(
     try {
       const texts = await Promise.all(
         messages.map(async (msg) => {
-          if (!msg.text.trim()) return null;
-          const prefix = msg.level.toUpperCase();
-          let text = `${EMOJIS[msg.level]} [${prefix}] ${msg.text}`;
+          const [, text, level, error] = msg;
+          if (!text.trim()) return null;
+          const prefix = level.toUpperCase();
+          let message = `${EMOJIS.get(level)} [${prefix}] ${text}`;
 
-          if (msg.level === 'error' && msg.error) {
-            const classified = await classifyError(msg.error);
-            text += '\n' + formatClassifiedError(classified);
+          if (level === 'error' && error) {
+            const classified = await classifyError(error);
+            message += '\n' + formatClassifiedError(classified);
           }
 
-          return text;
+          return message;
         })
       );
 

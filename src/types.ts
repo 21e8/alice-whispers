@@ -7,12 +7,13 @@ export type SeverityLevel =
   | 'high'
   | (string & NonNullable<unknown>);
 
-export type Message = {
-  chatId: string;
-  text: string;
-  level: NotificationLevel;
-  error?: Error | string;
-};
+// Message array format: [chatId, text, level, error?]
+export type Message = [
+  string, // chatId
+  string, // text
+  NotificationLevel, // level
+  (Error | string)? // optional error
+];
 
 export type BatcherConfig = {
   maxBatchSize: number;

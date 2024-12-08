@@ -84,7 +84,7 @@ export function createMessageBatcher(
     }
 
     const queue = queues.get(chatId) ?? [];
-    queue.push({ chatId, text: message, level, error });
+    queue.push([chatId, message, level, error]);
 
     // Set a timeout to process this batch if maxBatchSize isn't reached
     if (queue.length < maxBatchSize) {

@@ -29,9 +29,9 @@ describe('TelegramProcessor', () => {
   it('should send formatted messages to telegram API', async () => {
     const processor = createTelegramProcessor(defaultConfig);
     const messages: Message[] = [
-      { chatId: 'default', text: 'info message', level: 'info' },
-      { chatId: 'default', text: 'warning message', level: 'warning' },
-      { chatId: 'default', text: 'error message', level: 'error' },
+      ['default', 'info message', 'info'],
+      ['default', 'warning message', 'warning'],
+      ['default', 'error message', 'error'],
     ];
 
     await processor.processBatch(messages);
@@ -55,9 +55,7 @@ describe('TelegramProcessor', () => {
       ...defaultConfig,
       development: true,
     });
-    const messages: Message[] = [
-      { chatId: 'default', text: 'test message', level: 'info' },
-    ];
+    const messages: Message[] = [['default', 'test message', 'info']];
 
     await processor.processBatch(messages);
 
@@ -72,18 +70,17 @@ describe('TelegramProcessor', () => {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
-        json: () => Promise.resolve({
-          ok: false,
-          error_code: 400,
-          description: 'Bad Request: message text is empty'
-        }),
+        json: () =>
+          Promise.resolve({
+            ok: false,
+            error_code: 400,
+            description: 'Bad Request: message text is empty',
+          }),
       } as Response)
     );
 
     const processor = createTelegramProcessor(defaultConfig);
-    const messages: Message[] = [
-      { chatId: 'default', text: 'test message', level: 'info' },
-    ];
+    const messages: Message[] = [['default', 'test message', 'info']];
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
       'Telegram API error: Bad Request - Bad Request: message text is empty'
@@ -94,7 +91,7 @@ describe('TelegramProcessor', () => {
       expect.objectContaining({
         ok: false,
         error_code: 400,
-        description: expect.any(String)
+        description: expect.any(String),
       })
     );
   });
@@ -114,9 +111,7 @@ describe('TelegramProcessor', () => {
       ...defaultConfig,
       development: true,
     });
-    const messages: Message[] = [
-      { chatId: 'default', text: 'test message', level: 'info' },
-    ];
+    const messages: Message[] = [['default', 'test message', 'info']];
 
     await processor.processBatch(messages);
 
@@ -132,18 +127,17 @@ describe('TelegramProcessor', () => {
       Promise.resolve({
         ok: false,
         status: 400,
-        json: () => Promise.resolve({
-          ok: false,
-          error_code: 400,
-          description: 'Unknown Error'
-        }),
+        json: () =>
+          Promise.resolve({
+            ok: false,
+            error_code: 400,
+            description: 'Unknown Error',
+          }),
       } as Response)
     );
 
     const processor = createTelegramProcessor(defaultConfig);
-    const messages = [
-      { chatId: 'default', text: 'test', level: 'info' },
-    ] as Message[];
+    const messages = [['default', 'test', 'info']] as Message[];
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
       'Telegram API error: Unknown Error - Unknown Error'
@@ -153,8 +147,8 @@ describe('TelegramProcessor', () => {
   it('should handle empty formatted messages', async () => {
     const processor = createTelegramProcessor(defaultConfig);
     const messages: Message[] = [
-      { chatId: 'default', text: '   ', level: 'info' }, // whitespace only
-      { chatId: 'default', text: '', level: 'info' }, // empty string
+      ['default', '   ', 'info', undefined], // whitespace only
+      ['default', '', 'info', undefined], // empty string
     ];
 
     const consoleSpy = jest.spyOn(console, 'log');
@@ -168,9 +162,7 @@ describe('TelegramProcessor', () => {
   it('should format error messages with error details', async () => {
     const processor = createTelegramProcessor(defaultConfig);
     const error = new Error('Test error');
-    const messages: Message[] = [
-      { chatId: 'default', text: 'Error occurred', level: 'error', error },
-    ];
+    const messages: Message[] = [['default', 'Error occurred', 'error', error]];
 
     await processor.processBatch(messages);
 
