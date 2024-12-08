@@ -1,5 +1,5 @@
-import { adaptProcessor } from '../batcher';
-import { MessageObject } from '../types';
+// import { adaptPadaptProcessor, rocessor } from '../batcher';
+import { Message } from '../types';
 
 import { MessageProcessor } from '../types';
 
@@ -9,13 +9,13 @@ export function createCustomProcessor({
   processBatchSync,
 }: {
   name: string;
-  processBatch: (messages: MessageObject[]) => Promise<void>;
-  processBatchSync?: (messages: MessageObject[]) => void;
+  processBatch: (messages: Message[]) => Promise<void>;
+  processBatchSync?: (messages: Message[]) => void;
 }): MessageProcessor {
-  return adaptProcessor({
+  return {
     type: 'external',
     name,
     processBatch: processBatch || processBatchSync,
     processBatchSync: processBatchSync || processBatch,
-  });
+  };
 }

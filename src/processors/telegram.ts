@@ -1,8 +1,6 @@
 import type {
   InternalMessageProcessor,
   Message,
-  MessageObject,
-  MessageProcessor,
   NotificationLevel,
   TelegramConfig,
 } from '../types';

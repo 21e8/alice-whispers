@@ -13,11 +13,7 @@ describe('createCustomProcessor', () => {
     await processor.processBatch(messages);
 
     expect(processBatchMock).toHaveBeenCalledWith([
-      {
-        chatId: 'default',
-        text: 'test',
-        level: 'info',
-      },
+      ['default', 'test', 'info', undefined],
     ]);
     expect(processor.name).toBe('test');
     expect(processor.type).toBe('external');
@@ -35,11 +31,7 @@ describe('createCustomProcessor', () => {
     processor.processBatchSync?.(messages);
 
     expect(processBatchSyncMock).toHaveBeenCalledWith([
-      {
-        chatId: 'default',
-        text: 'test',
-        level: 'info',
-      },
+      ['default', 'test', 'info', undefined],
     ]);
     expect(processor.name).toBe('test');
   });
@@ -58,18 +50,10 @@ describe('createCustomProcessor', () => {
     processor.processBatchSync?.(messages);
 
     expect(processBatchMock).toHaveBeenCalledWith([
-      {
-        chatId: 'default',
-        text: 'test',
-        level: 'info',
-      },
+      ['default', 'test', 'info', undefined],
     ]);
     expect(processBatchSyncMock).toHaveBeenCalledWith([
-      {
-        chatId: 'default',
-        text: 'test',
-        level: 'info',
-      },
+      ['default', 'test', 'info', undefined],
     ]);
   });
 
@@ -77,7 +61,7 @@ describe('createCustomProcessor', () => {
     const error = new Error('Test error');
     const processor = createCustomProcessor({
       name: 'test',
-      processBatch: () => {
+      processBatch: async () => {
         throw error;
       },
     });

@@ -4,80 +4,67 @@ import {
   type NotificationLevel,
   type MessageProcessor,
   type MessageBatcher,
-  MessageObject,
-  InternalMessageProcessor,
-  ExternalMessageProcessor,
+  // type MessageObject,
+  type InternalMessageProcessor,
+  type ExternalMessageProcessor,
 } from './types';
 let globalBatcher: MessageBatcher | null = null;
 
-function objectToMessage({
-  chatId,
-  text,
-  level,
-  error,
-}: MessageObject): Message {
-  return [chatId, text, level, error];
-}
+// function isMessageObjectArray(
+//   messages: MessageObject[] | Message[]
+// ): messages is MessageObject[] {
+//   return 'chatId' in messages[0];
+// }
 
-function isMessageObjectArray(
-  messages: MessageObject[] | Message[]
-): messages is MessageObject[] {
-  return 'chatId' in messages[0];
-}
+// const convertProcessBatch = async (
+//   processor: ExternalMessageProcessor,
+//   messages: Message[]
+// ) => {
+//   if (!processor.processBatch) {
+//     throw new Error('processBatch is not a function');
+//   }
+//   await processor.processBatch(messages);
+// };
 
-const convertProcessBatch = async (
-  processor: ExternalMessageProcessor,
-  messages: MessageObject[]
-) => {
-  if (!processor.processBatch) {
-    throw new Error('processBatch is not a function');
-  }
-  if (isMessageObjectArray(messages)) {
-    await processor.processBatch(messages);
-  } else {
-    await processor.processBatch(messages);
-  }
-};
-
-const convertProcessBatchSync = (
-  processor: ExternalMessageProcessor,
-  messages: MessageObject[]
-) => {
-  if (isMessageObjectArray(messages)) {
-    (processor.processBatchSync || processor.processBatch)(messages);
-  } else {
-    (processor.processBatchSync || processor.processBatch)(messages);
-  }
-};
-
-export function adaptProcessor(
-  processor: ExternalMessageProcessor
-): MessageProcessor {
-  return {
-    type: processor.type,
-    name: processor.name,
-    processBatch: (messages) =>
-      convertProcessBatch(
-        processor,
-        messages.map(([chatId, text, level, error]) => ({
-          chatId,
-          text,
-          level,
-          error,
-        }))
-      ),
-    processBatchSync: (messages) =>
-      convertProcessBatchSync(
-        processor,
-        messages.map(([chatId, text, level, error]) => ({
-          chatId,
-          text,
-          level,
-          error,
-        }))
-      ),
-  };
-}
+// const convertProcessBatchSync = (
+//   processor: ExternalMessageProcessor,
+//   messages: Message[]
+// ) => {
+//   if (isMessageObjectArray(messages)) {
+//     (processor.processBatchSync || processor.processBatch)(messages);
+//   } else {
+//     (processor.processBatchSync || processor.processBatch)(messages);
+//   }
+// };
+// Rewrite the function to convert MessageObject[] to Message[]
+// export function adaptProcessor(
+//   processor: ExternalMessageProcessor
+// ): MessageProcessor {
+//   return {
+//     type: processor.type,
+//     name: processor.name,
+//     processBatch: (messages) =>
+//       convertProcessBatch(
+//         processor,
+//         messages.map(([chatId, text, level, error]) => ({
+//           chatId,
+//           text,
+//           level,
+//           error,
+//         }))
+//       ),
+//     processBatchSync: (messages) =>
+//       convertProcessBatchSync(
+//         processor,
+//         messages.map(([chatId, text, level, error]) => ({
+//           chatId,
+//           text,
+//           level,
+//           error,
+//         }))
+//       ),
+//   };
+// }
 
 export function createMessageBatcher(
   processors: InternalMessageProcessor[] | MessageProcessor[],
@@ -118,7 +105,7 @@ export function createMessageBatcher(
       console.error(`Processor ${processor.name} already exists`);
       return;
     }
-    extraProcessors.push(adaptProcessor(processor));
+    extraProcessors.push(processor);
     processorNames.add(processor.name);
   }
 

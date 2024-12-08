@@ -16,12 +16,12 @@ export type Message = [
 ];
 
 // External object format for processor implementations
-export type MessageObject = {
-  chatId: string;
-  text: string;
-  level: NotificationLevel;
-  error?: Error | string;
-};
+// export type MessageObject = {
+//   chatId: string;
+//   text: string;
+//   level: NotificationLevel;
+//   error?: Error | string;
+// };
 
 export type BatcherConfig = {
   maxBatchSize: number;
@@ -56,8 +56,8 @@ export interface MessageProcessor {
 export interface ExternalMessageProcessor {
   type: 'external';
   name: string;
-  processBatch(messages: MessageObject[]): void | Promise<void>;
-  processBatchSync?(messages: MessageObject[]): void;
+  processBatch(messages: Message[]): void | Promise<void>;
+  processBatchSync?(messages: Message[]): void;
 }
 
 // Helper type to convert external processor to internal

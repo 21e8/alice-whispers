@@ -2,7 +2,7 @@ import { createMessageBatcher } from '../batcher';
 import type {
   MessageBatcher,
   MessageProcessor,
-  MessageObject,
+  // MessageObject,
   Message,
 } from '../types';
 
@@ -51,11 +51,7 @@ describe('MessageBatcher', () => {
     await batcher.flush();
 
     expect(processBatchSpy).toHaveBeenCalledWith([
-      {
-        chatId: 'default',
-        text: 'test message',
-        level: 'info',
-      },
+      ['default', 'test message', 'info', undefined],
     ]);
     expect(mockProcessor.processBatch).toHaveBeenCalledWith([
       ['default', 'test message', 'info', undefined],
