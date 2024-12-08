@@ -1,10 +1,10 @@
 import { createMessageBatcher } from '../batcher.js';
-import type { Message, MessageProcessor } from '../types.js';
-
-const mockProcessor: MessageProcessor = {
-  type: 'external',
+import type { InternalMessageProcessor, Message } from '../types.js';
+import Queue from '../utils/queue.js';
+const mockProcessor: InternalMessageProcessor = {
+  type: 'internal',
   name: 'mock',
-  processBatch: async (messages: Message[]) => {
+  processBatch: async (messages: Queue<Message>) => {
     console.log('Processing batch:', messages);
   },
 };
@@ -12,11 +12,11 @@ const mockProcessor: MessageProcessor = {
 async function testTimeout() {
   console.log('Starting timeout test...');
 
-  const batcher = createMessageBatcher([mockProcessor], {
+  const batcher = createMessageBatcher({
     maxBatchSize: 5,
     maxWaitMs: 100,
   });
-
+  batcher.addProcessor(mockProcessor);
   console.log('Sending first message...');
   batcher.info('First message');
 

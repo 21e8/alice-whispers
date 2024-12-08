@@ -16,8 +16,11 @@ export default class Queue<T = any> {
   #tail: Node<T> | undefined;
   #size = 0;
 
-  constructor() {
+  constructor(initialValues: T[] = []) {
     this.clear();
+    for (const value of initialValues) {
+      this.enqueue(value);
+    }
   }
 
   toArray(): T[] {
@@ -39,24 +42,24 @@ export default class Queue<T = any> {
     this.#size++;
   }
 
-  // dequeue() {
-  //   const current = this.#head;
-  //   if (!current) {
-  //     return;
-  //   }
+  dequeue() {
+    const current = this.#head;
+    if (!current) {
+      return;
+    }
 
-  //   this.#head = this.#head?.next;
-  //   this.#size--;
-  //   return current.value;
-  // }
+    this.#head = this.#head?.next;
+    this.#size--;
+    return current.value;
+  }
 
-  // peek() {
-  //   if (!this.#head) {
-  //     return;
-  //   }
+  peek() {
+    if (!this.#head) {
+      return;
+    }
 
-  //   return this.#head.value;
-  // }
+    return this.#head.value;
+  }
 
   clear() {
     this.#head = undefined;

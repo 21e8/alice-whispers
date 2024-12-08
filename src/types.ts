@@ -44,16 +44,16 @@ export interface TelegramConfig {
 export interface InternalMessageProcessor {
   type: 'internal';
   name: string;
-  processBatch(messages: Message[]): void | Promise<void>;
-  processBatchSync?(messages: Message[]): void;
+  processBatch(messages: Queue<Message>): void | Promise<void>;
+  processBatchSync?(messages: Queue<Message>): void;
 }
 
 // External processor interface
 export interface MessageProcessor {
   type: 'external' | 'internal';
   name: string;
-  processBatch(messages: Message[]): void | Promise<void>;
-  processBatchSync?(messages: Message[]): void;
+  processBatch(messages: Queue<Message>): void | Promise<void>;
+  processBatchSync?(messages: Queue<Message>): void;
 }
 // External processor interface
 export interface ExternalMessageProcessor {
@@ -79,9 +79,9 @@ export interface MessageBatcher {
   destroy(): Promise<void>;
   queues: Map<string, Queue<Message>>;
   timers: Map<string, NodeJS.Timeout>;
-  addExtraProcessor(processor: ExternalMessageProcessor): void;
-  removeExtraProcessor(name: string): void;
-  removeAllExtraProcessors(): void;
+  addProcessor(processor: ExternalMessageProcessor | InternalMessageProcessor): void;
+  removeProcessor(name: string): void;
+  removeAllProcessors(): void;
 }
 
 export type ProcessorOptions = {

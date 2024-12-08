@@ -104,6 +104,7 @@ export async function classifyError(
       if (p[1] === 'DATABASE_CONSTRAINT_VIOLATION') {
         const constraint = msg.match(/constraint "([^"]+)"/)?.[1];
         if (constraint) {
+          details.enqueue('constraint');
           details.enqueue(constraint);
           trackerKey += `:${constraint}`;
         }

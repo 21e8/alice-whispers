@@ -1,4 +1,5 @@
 import type { Message, MessageProcessor } from '../types';
+import Queue from '../utils/queue';
 
 export function createCustomProcessor({
   name,
@@ -12,7 +13,25 @@ export function createCustomProcessor({
   return {
     type: 'external',
     name,
-    processBatch: processBatch || processBatchSync,
-    processBatchSync: processBatchSync || processBatch,
+    processBatch: (queue: Queue<Message>) => {
+      const arr: Message[] = [];
+      while (queue.size > 0) {
+        const item = queue.dequeue();
+        if (item) {
+          arr.push(item);
+        }
+      }
+      return processBatch(arr);
+    },
+    processBatchSync: (queue: Queue<Message>) => {
+      const arr: Message[] = [];
+      while (queue.size > 0) {
+        const item = queue.dequeue();
+        if (item) {
+          arr.push(item);
+        }
+      }
+      return processBatchSync?.(arr);
+    },
   };
 }

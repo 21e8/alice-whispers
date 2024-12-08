@@ -1,5 +1,6 @@
 import { createTelegramProcessor } from '../../processors/telegram';
 import type { Message, TelegramConfig } from '../../types';
+import Queue from '../../utils/queue';
 
 describe('TelegramProcessor', () => {
   const defaultConfig: TelegramConfig = {
@@ -28,11 +29,10 @@ describe('TelegramProcessor', () => {
 
   it('should send formatted messages to telegram API', async () => {
     const processor = createTelegramProcessor(defaultConfig);
-    const messages: Message[] = [
-      ['default', 'info message', 'info', undefined],
-      ['default', 'warning message', 'warning', undefined],
-      ['default', 'error message', 'error', undefined],
-    ];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'info message', 'info', undefined]);
+    messages.enqueue(['default', 'warning message', 'warning', undefined]);
+    messages.enqueue(['default', 'error message', 'error', undefined]);
 
     await processor.processBatch(messages);
 
@@ -55,9 +55,8 @@ describe('TelegramProcessor', () => {
       ...defaultConfig,
       development: true,
     });
-    const messages: Message[] = [
-      ['default', 'test message', 'info', undefined],
-    ];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test message', 'info', undefined]);
 
     await processor.processBatch(messages);
 
@@ -82,9 +81,8 @@ describe('TelegramProcessor', () => {
     );
 
     const processor = createTelegramProcessor(defaultConfig);
-    const messages: Message[] = [
-      ['default', 'test message', 'info', undefined],
-    ];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test message', 'info', undefined]);
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
       'Telegram API error: Bad Request - Bad Request: message text is empty'
@@ -102,7 +100,8 @@ describe('TelegramProcessor', () => {
 
   it('should handle empty message batch', async () => {
     const processor = createTelegramProcessor(defaultConfig);
-    await processor.processBatch([]);
+    const messages = new Queue<Message>();
+    await processor.processBatch(messages);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -115,9 +114,8 @@ describe('TelegramProcessor', () => {
       ...defaultConfig,
       development: true,
     });
-    const messages: Message[] = [
-      ['default', 'test message', 'info', undefined],
-    ];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test message', 'info', undefined]);
 
     await processor.processBatch(messages);
 
@@ -143,7 +141,8 @@ describe('TelegramProcessor', () => {
     );
 
     const processor = createTelegramProcessor(defaultConfig);
-    const messages = [['default', 'test', 'info', undefined]] as Message[];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test', 'info', undefined]);
 
     await expect(processor.processBatch(messages)).rejects.toThrow(
       'Telegram API error: Unknown Error - Unknown Error'
@@ -152,10 +151,9 @@ describe('TelegramProcessor', () => {
 
   it('should handle empty formatted messages', async () => {
     const processor = createTelegramProcessor(defaultConfig);
-    const messages: Message[] = [
-      ['default', '   ', 'info', undefined], // whitespace only
-      ['default', '', 'info', undefined], // empty string
-    ];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', '   ', 'info', undefined]); // whitespace only
+    messages.enqueue(['default', '', 'info', undefined]); // empty string
 
     const consoleSpy = jest.spyOn(console, 'log');
     await processor.processBatch(messages);
@@ -168,7 +166,8 @@ describe('TelegramProcessor', () => {
   it('should format error messages with error details', async () => {
     const processor = createTelegramProcessor(defaultConfig);
     const error = new Error('Test error');
-    const messages: Message[] = [['default', 'Error occurred', 'error', error]];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'Error occurred', 'error', error]);
 
     await processor.processBatch(messages);
 

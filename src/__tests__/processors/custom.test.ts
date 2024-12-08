@@ -1,5 +1,6 @@
 import { createCustomProcessor } from '../../processors/custom';
 import type { Message } from '../../types';
+import Queue from '../../utils/queue';
 
 describe('createCustomProcessor', () => {
   it('should create a processor with async processBatch', async () => {
@@ -9,7 +10,8 @@ describe('createCustomProcessor', () => {
       processBatch: processBatchMock,
     });
 
-    const messages: Message[] = [['default', 'test', 'info']];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test', 'info']);
     await processor.processBatch(messages);
 
     expect(processBatchMock).toHaveBeenCalledWith([
@@ -27,7 +29,8 @@ describe('createCustomProcessor', () => {
       processBatchSync: processBatchSyncMock,
     });
 
-    const messages: Message[] = [['default', 'test', 'info']];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test', 'info']);
     processor.processBatchSync?.(messages);
 
     expect(processBatchSyncMock).toHaveBeenCalledWith([
@@ -45,9 +48,14 @@ describe('createCustomProcessor', () => {
       processBatchSync: processBatchSyncMock,
     });
 
-    const messages: Message[] = [['default', 'test', 'info']];
-    await processor.processBatch(messages);
-    processor.processBatchSync?.(messages);
+    // Create separate queues for async and sync processing
+    const asyncMessages = new Queue<Message>();
+    asyncMessages.enqueue(['default', 'test', 'info']);
+    await processor.processBatch(asyncMessages);
+
+    const syncMessages = new Queue<Message>();
+    syncMessages.enqueue(['default', 'test', 'info']);
+    processor.processBatchSync?.(syncMessages);
 
     expect(processBatchMock).toHaveBeenCalledWith([
       ['default', 'test', 'info', undefined],
@@ -66,7 +74,8 @@ describe('createCustomProcessor', () => {
       },
     });
 
-    const messages: Message[] = [['default', 'test', 'info']];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test', 'info']);
     await expect(processor.processBatch(messages)).rejects.toThrow(error);
   });
 
@@ -80,7 +89,8 @@ describe('createCustomProcessor', () => {
       },
     });
 
-    const messages: Message[] = [['default', 'test', 'info']];
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test', 'info']);
     expect(() => processor.processBatchSync?.(messages)).toThrow(error);
   });
 });

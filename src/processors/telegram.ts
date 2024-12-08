@@ -9,6 +9,7 @@ import {
   clearErrorTracking,
   formatClassifiedError,
 } from '../utils/errorClassifier';
+import Queue from '../utils/queue';
 
 const EMOJIS = new Map<NotificationLevel | string, string>([
   ['error', '🚨'],
@@ -28,19 +29,19 @@ export function createTelegramProcessor(
   const { botToken, chatId, development = false } = config;
   const baseUrl = `https://api.telegram.org/bot${botToken}`;
 
-  async function processBatch(messages: Message[]): Promise<void> {
+  async function processBatch(messages: Queue<Message>): Promise<void> {
     if (development) {
       console.log('[Telegram] Would send messages:', messages);
       return;
     }
 
-    if (!messages.length) {
+    if (!messages.size) {
       return;
     }
 
     try {
       const texts = await Promise.all(
-        messages.map(async (msg) => {
+        messages.toArray().map(async (msg) => {
           if (!msg[1].trim()) return null;
           const prefix = msg[2].toUpperCase();
           let message = `${EMOJIS.get(msg[2]) ?? ''} [${prefix}] ${msg[1]}`;
