@@ -1,4 +1,5 @@
 import { SeverityLevel, ErrorPatternConfig, ErrorPattern } from '../types';
+import Queue from './queue';
 
 // Convert config to internal pattern
 function configToPattern(config: ErrorPatternConfig): ErrorPattern {
@@ -97,13 +98,13 @@ export async function classifyError(
     }
 
     if (matches) {
-      const details: string[] = [];
+      const details = new Queue<string>();
       let trackerKey = p[1];
 
       if (p[1] === 'DATABASE_CONSTRAINT_VIOLATION') {
         const constraint = msg.match(/constraint "([^"]+)"/)?.[1];
         if (constraint) {
-          details.push('constraint', constraint);
+          details.enqueue(constraint);
           trackerKey += `:${constraint}`;
         }
       }
@@ -129,7 +130,7 @@ export async function classifyError(
             msg,
             p[1],
             p[2],
-            details,
+            details.toArray(),
             true,
             tracker[1] + 1,
             `${timeWindow}s`,
@@ -137,7 +138,7 @@ export async function classifyError(
         }
       }
 
-      return [msg, p[1], p[2], details, false];
+      return [msg, p[1], p[2], details.toArray(), false];
     }
   }
 

@@ -1,3 +1,5 @@
+import Queue from "./utils/queue";
+
 export type NotificationLevel = 'info' | 'warning' | 'error';
 
 // Predefined severity levels with option for custom strings
@@ -75,7 +77,7 @@ export interface MessageBatcher {
   flush(): Promise<void>;
   flushSync(): void;
   destroy(): Promise<void>;
-  queues: Map<string, Message[]>;
+  queues: Map<string, Queue<Message>>;
   timers: Map<string, NodeJS.Timeout>;
   addExtraProcessor(processor: ExternalMessageProcessor): void;
   removeExtraProcessor(name: string): void;

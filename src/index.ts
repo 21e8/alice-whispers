@@ -6,6 +6,9 @@ export { createCustomProcessor } from './processors/custom';
 
 export { createConsoleProcessor } from './processors/console';
 
+import Queue from './utils/queue';
+export { Queue };
+
 export {
   addErrorPatterns,
   resetErrorPatterns,
