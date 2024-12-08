@@ -44,9 +44,9 @@
     "telegram",
     "bot",
     "notifications",
-    "vbase"
+    "0xalice"
   ],
-  "author": "VBase",
+  "author": "0xAlice",
   "license": "MIT",
   "dependencies": {
     "node-fetch": "^3.3.0",
