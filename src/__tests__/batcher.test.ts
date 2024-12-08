@@ -1,5 +1,9 @@
 import { BatchAggregateError, createMessageBatcher } from '../batcher';
-import type { MessageBatcher, ExternalMessageProcessor, Message } from '../types';
+import type {
+  MessageBatcher,
+  ExternalMessageProcessor,
+  Message,
+} from '../types';
 import Queue from '../utils/queue';
 
 describe('MessageBatcher', () => {
@@ -239,7 +243,7 @@ describe('MessageBatcher', () => {
     } catch (e) {
       expect(e).toBeInstanceOf(BatchAggregateError);
       const batchError = e as BatchAggregateError;
-      expect(batchError.errors[0]).toBe(error);
+      expect(batchError.errors.dequeue()?.message).toBe(error.message);
     }
 
     expect(consoleSpy).toHaveBeenCalledWith('Processor mock failed:', error);
@@ -267,7 +271,9 @@ describe('MessageBatcher', () => {
     } catch (e) {
       expect(e).toBeInstanceOf(BatchAggregateError);
       const batchError = e as BatchAggregateError;
-      expect(batchError.errors[0].message).toBe('processor.processBatch is not a function');
+      expect(batchError.errors.dequeue()?.message).toBe(
+        'processor.processBatch is not a function'
+      );
     }
   });
 

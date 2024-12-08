@@ -11,9 +11,9 @@ import Queue from './utils/queue';
 
 // Custom AggregateError implementation
 export class BatchAggregateError extends Error {
-  readonly errors: Error[];
+  readonly errors: Queue<Error>;
 
-  constructor(errors: Error[], message: string) {
+  constructor(errors: Queue<Error>, message: string) {
     super(message);
     this.name = 'BatchAggregateError';
     this.errors = errors;
@@ -26,6 +26,11 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
   const id = config.id ?? 'default';
   const isSingleton = config.singleton ?? true;
   const existingBatcher = globalBatchers.get(id);
+  if (globalBatchers.size > 0) {
+    console.warn(
+      'You are trying to create a new batcher while there is already one. This is currently not supported. Be at your own risk.'
+    );
+  }
   if (isSingleton && existingBatcher) {
     return existingBatcher;
   }
@@ -143,7 +148,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     items: T[],
     concurrency: number,
     processor: (item: T) => Promise<void>
-  ): Promise<Error[]> {
+  ): Promise<Queue<Error>> {
     const chunks = [];
     for (let i = 0; i < items.length; i += concurrency) {
       chunks.push(items.slice(i, i + concurrency));
@@ -174,7 +179,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       }
     }
 
-    return errors.toArray();
+    return errors;
   }
 
   const exhaustBatcher = async (
@@ -224,7 +229,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       (processor) => exhaustBatcher(processor, processingQueue)
     );
 
-    if (errors.length > 0) {
+    if (errors.size > 0) {
       throw new BatchAggregateError(
         errors,
         'Some processors failed to process batch'
@@ -277,10 +282,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     // If there were any sync errors, throw them
     if (errors.size > 0) {
-      throw new BatchAggregateError(
-        errors.toArray(),
-        'Some batches failed to process'
-      );
+      throw new BatchAggregateError(errors, 'Some batches failed to process');
     }
   }
 
@@ -305,7 +307,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     if (errors.size > 0) {
       throw new BatchAggregateError(
-        errors.toArray(),
+        errors,
         'Some batches failed to process during flush'
       );
     }
@@ -332,7 +334,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     if (errors.size > 0) {
       throw new BatchAggregateError(
-        errors.toArray(),
+        errors,
         'Some batches failed to process during flush'
       );
     }
@@ -386,9 +388,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     removeAllProcessors,
   };
 
-  if (isSingleton) {
-    globalBatchers.set(id, batcher);
-  }
+  globalBatchers.set(id, batcher);
 
   return batcher;
 }
