@@ -10,62 +10,6 @@ import {
 } from './types';
 let globalBatcher: MessageBatcher | null = null;
 
-// function isMessageObjectArray(
-//   messages: MessageObject[] | Message[]
-// ): messages is MessageObject[] {
-//   return 'chatId' in messages[0];
-// }
-
-// const convertProcessBatch = async (
-//   processor: ExternalMessageProcessor,
-//   messages: Message[]
-// ) => {
-//   if (!processor.processBatch) {
-//     throw new Error('processBatch is not a function');
-//   }
-//   await processor.processBatch(messages);
-// };
-
-// const convertProcessBatchSync = (
-//   processor: ExternalMessageProcessor,
-//   messages: Message[]
-// ) => {
-//   if (isMessageObjectArray(messages)) {
-//     (processor.processBatchSync || processor.processBatch)(messages);
-//   } else {
-//     (processor.processBatchSync || processor.processBatch)(messages);
-//   }
-// };
-// Rewrite the function to convert MessageObject[] to Message[]
-// export function adaptProcessor(
-//   processor: ExternalMessageProcessor
-// ): MessageProcessor {
-//   return {
-//     type: processor.type,
-//     name: processor.name,
-//     processBatch: (messages) =>
-//       convertProcessBatch(
-//         processor,
-//         messages.map(([chatId, text, level, error]) => ({
-//           chatId,
-//           text,
-//           level,
-//           error,
-//         }))
-//       ),
-//     processBatchSync: (messages) =>
-//       convertProcessBatchSync(
-//         processor,
-//         messages.map(([chatId, text, level, error]) => ({
-//           chatId,
-//           text,
-//           level,
-//           error,
-//         }))
-//       ),
-//   };
-// }
-
 export function createMessageBatcher(
   processors: InternalMessageProcessor[] | MessageProcessor[],
   config: BatcherConfig
@@ -83,11 +27,9 @@ export function createMessageBatcher(
   const maxBatchSize = config.maxBatchSize ?? 100;
   const maxWaitMs = config.maxWaitMs ?? 60_000; // 1 minute
 
-  // Initialize with main processors
   processors.forEach((processor) => {
     processorNames.add(processor.name);
   });
-  // extraProcessors = [...processors];
 
   function startProcessing(): void {
     if (processInterval) {

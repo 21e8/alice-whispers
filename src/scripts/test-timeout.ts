@@ -25,7 +25,7 @@ async function testTimeout() {
   console.log('Sending second message...');
   batcher.info('Second message');
 
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   console.log('Test complete. Cleaning up...');
   batcher.destroy();

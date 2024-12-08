@@ -2,17 +2,17 @@ import { SeverityLevel } from "../types";
 
 // Define the named object interface
 export type ErrorPatternConfig = {
-  name: string;
-  pattern:
+  readonly name: string;
+  readonly pattern:
     | RegExp
     | ((message: string) => boolean)
     | Promise<boolean>
     | ((message: string) => Promise<boolean>);
-  category: string;
-  severity: SeverityLevel;
-  aggregation?: {
-    windowMs: number;
-    countThreshold: number;
+  readonly category: string;
+  readonly severity: SeverityLevel;
+  readonly aggregation?: {
+    readonly windowMs: number;
+    readonly countThreshold: number;
   };
 };
 
