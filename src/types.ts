@@ -10,6 +10,7 @@ export type Message = {
 export type BatcherConfig = {
   maxBatchSize: number;
   maxWaitMs: number;
+  concurrentProcessors?: number;
 };
 
 export interface TelegramConfig {

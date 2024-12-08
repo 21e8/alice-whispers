@@ -10,7 +10,7 @@ import {
 let globalBatcher: MessageBatcher | null = null;
 export function createMessageBatcher(
   processors: MessageProcessor[],
-  config: Required<BatcherConfig>
+  config: BatcherConfig
 ): MessageBatcher {
   if (globalBatcher) {
     return globalBatcher;
@@ -21,26 +21,35 @@ export function createMessageBatcher(
   const timers: Map<string, NodeJS.Timeout> = new Map();
   let extraProcessors: MessageProcessor[] = [];
   const processorNames = new Set(processors.map((p) => p.name));
+  const concurrentProcessors = config.concurrentProcessors ?? 3;
+  const maxBatchSize = config.maxBatchSize ?? 100;
+  const maxWaitMs = config.maxWaitMs ?? 60_000; // 1 minute
 
   function startProcessing(): void {
     processInterval = setInterval(async () => {
       for (const chatId of queues.keys()) {
         await processBatch(chatId);
       }
-    }, config.maxWaitMs);
+    }, maxWaitMs);
   }
 
   function addExtraProcessor(processor: MessageProcessor): void {
-    if (!processorNames.has(processor.name)) {
-      console.error(`Processor ${processor.name} not found in main processors`);
+    if (processorNames.has(processor.name)) {
+      console.error(`Processor ${processor.name} already exists`);
       return;
     }
     extraProcessors.push(processor);
+    processorNames.add(processor.name);
+  }
+
+  function removeAllExtraProcessors(): void {
+    extraProcessors = [];
+    // processorNames.clear();
   }
 
   function removeExtraProcessor(processor: MessageProcessor): void {
     if (!processorNames.has(processor.name)) {
-      console.error(`Processor ${processor.name} not found in main processors`);
+      console.error(`Processor ${processor.name} not found`);
       return;
     }
     extraProcessors = extraProcessors.filter((p) => p !== processor);
@@ -73,13 +82,13 @@ export function createMessageBatcher(
     queue.push({ chatId, text: message, level, error });
 
     // Set a timeout to process this batch if maxBatchSize isn't reached
-    if (queue.length < config.maxBatchSize) {
+    if (queue.length < maxBatchSize) {
       const existingTimer = timers.get(chatId);
       if (!existingTimer) {
         const timer = setTimeout(() => {
           processBatch(chatId);
           timers.delete(chatId);
-        }, config.maxWaitMs);
+        }, maxWaitMs);
         timers.set(chatId, timer);
       }
     } else {
@@ -89,7 +98,7 @@ export function createMessageBatcher(
   }
 
   // Helper function for concurrent processing
-  async function processInBatches<T>(
+  async function concurrentExhaust<T>(
     items: T[],
     concurrency: number,
     processor: (item: T) => Promise<void>
@@ -100,9 +109,38 @@ export function createMessageBatcher(
     }
 
     for (const chunk of chunks) {
-      await Promise.all(chunk.map(processor));
+      // Process each item in the chunk and collect results
+      const results = await Promise.allSettled(
+        chunk.map((item) => processor(item))
+      );
+
+      // Check for any rejections
+      const errors = results
+        .filter(
+          (result): result is PromiseRejectedResult =>
+            result.status === 'rejected'
+        )
+        .map((result) => result.reason);
+
+      if (errors.length > 0) {
+        throw errors[0]; // Throw the first error encountered
+      }
     }
   }
+
+  const exhaustProcessor = async (
+    processor: MessageProcessor,
+    batch: Message[]
+  ) => {
+    try {
+      if (typeof processor.processBatch !== 'function') {
+        throw new Error('processBatch is not a function');
+      }
+      await processor.processBatch(batch);
+    } catch (error) {
+      console.error(`Processor ${processor.name} failed:`, error);
+    }
+  };
 
   async function processBatch(chatId: string): Promise<void> {
     const queue = queues.get(chatId);
@@ -118,22 +156,12 @@ export function createMessageBatcher(
     const batch = [...queue];
     queues.set(chatId, []);
 
-    try {
-      const allProcessors = [...processors, ...extraProcessors];
-      await processInBatches(
-        allProcessors,
-        3, // Process 3 processors concurrently
-        async (processor) => {
-          try {
-            await processor.processBatch(batch);
-          } catch (error) {
-            console.error(`Processor ${processor.name} failed:`, error);
-          }
-        }
-      );
-    } catch (error) {
-      console.error('Error processing batch:', error);
-    }
+    const allProcessors = [...processors, ...extraProcessors];
+    await concurrentExhaust(
+      allProcessors,
+      concurrentProcessors,
+      (processor) => exhaustProcessor(processor, batch)
+    );
   }
 
   function processBatchSync(chatId: string): void {
