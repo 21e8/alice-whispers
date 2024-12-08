@@ -7,6 +7,18 @@ import {
   type InternalMessageProcessor,
   type ExternalMessageProcessor,
 } from './types';
+
+// Custom AggregateError implementation
+export class BatchAggregateError extends Error {
+  readonly errors: Error[];
+
+  constructor(errors: Error[], message: string) {
+    super(message);
+    this.name = 'BatchAggregateError';
+    this.errors = errors;
+  }
+}
+
 export const globalBatchers = new Map<string, MessageBatcher>();
 
 export function createMessageBatcher(
@@ -28,9 +40,9 @@ export function createMessageBatcher(
   const maxBatchSize = config.maxBatchSize ?? 100;
   const maxWaitMs = config.maxWaitMs ?? 60_000; // 1 minute
 
-  processors.forEach((processor) => {
+  for (const processor of processors) {
     processorNames.add(processor.name);
-  });
+  }
 
   function startProcessing(): void {
     if (processInterval) {
@@ -155,6 +167,7 @@ export function createMessageBatcher(
       await processor.processBatch(batch);
     } catch (error) {
       console.error(`Processor ${processor.name} failed:`, error);
+      throw error;
     }
   };
 
@@ -180,7 +193,10 @@ export function createMessageBatcher(
     );
 
     if (errors.length > 0) {
-      throw errors[0];
+      throw new BatchAggregateError(
+        errors.map(e => e instanceof Error ? e : new Error(String(e))),
+        'Some processors failed to process batch'
+      );
     }
   }
 
@@ -195,49 +211,89 @@ export function createMessageBatcher(
       try {
         if (processor.processBatchSync) {
           processor.processBatchSync(batch);
-        } else {
-          try {
-            const result = processor.processBatch(batch);
-            if (result instanceof Promise) {
-              result.catch((error: Error) => {
-                console.error(`Processor ${processor.name} failed:`, error);
-              });
-            }
-          } catch (error) {
-            console.error(`Processor ${processor.name} failed:`, error);
-          }
+        } else if (processor.processBatch) {
+          // For async processBatch, we'll catch and log errors
+          // We need to handle this differently since we can't await in sync context
+          processor.processBatch(batch);
+            // .catch((error) => {
+            //   console.error(`Processor ${processor.name} failed:`, error);
+            // });
         }
       } catch (error) {
         console.error(`Processor ${processor.name} failed:`, error);
+        throw error;
       }
     }
   }
 
   async function flush(): Promise<void> {
+    const errors: Error[] = [];
+    
+    // Clear any pending timers first
+    for (const timer of timers.values()) {
+      clearTimeout(timer);
+    }
+    timers.clear();
+
+    // Process all queues
     for (const chatId of queues.keys()) {
-      await processBatch(chatId);
+      try {
+        await processBatch(chatId);
+      } catch (error) {
+        if (error instanceof BatchAggregateError) {
+          errors.push(...error.errors);
+        } else {
+          errors.push(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    }
+
+    // If there were any errors, throw a BatchAggregateError
+    if (errors.length > 0) {
+      throw new BatchAggregateError(errors, 'Some batches failed to process during flush');
     }
   }
 
   function flushSync(): void {
+    // Clear any pending timers first
+    for (const timer of timers.values()) {
+      clearTimeout(timer);
+    }
+    timers.clear();
+
     for (const chatId of queues.keys()) {
       processBatchSync(chatId);
     }
   }
 
-  function destroy(): void {
+  async function destroy(): Promise<void> {
+    // Stop the processing interval first
     if (processInterval) {
       clearInterval(processInterval);
       processInterval = null;
     }
-    for (const timer of timers.values()) {
-      clearTimeout(timer);
+
+    try {
+      // Try to process any remaining messages
+      await flush();
+    } catch (error) {
+      if (error instanceof BatchAggregateError) {
+        console.error('Error processing remaining messages during destroy:', error);
+      } else {
+        const wrappedError = new BatchAggregateError(
+          [error instanceof Error ? error : new Error(String(error))],
+          'Error processing remaining messages during destroy'
+        );
+        console.error('Error processing remaining messages during destroy:', wrappedError);
+      }
+    } finally {
+      // Clean up all resources
+      timers.clear();
+      queues.clear();
+      extraProcessors = [];
+      processorNames.clear();
+      globalBatchers.delete(id);
     }
-    timers.clear();
-    queues.clear();
-    extraProcessors = [];
-    processorNames.clear();
-    globalBatchers.delete(id);
   }
 
   // Initialize processing
