@@ -28,6 +28,7 @@ export type BatcherConfig = {
   maxWaitMs: number;
   concurrentProcessors?: number;
   singleton?: boolean;
+  id?: string;
 };
 
 export interface TelegramConfig {

@@ -4,19 +4,20 @@ import {
   type NotificationLevel,
   type MessageProcessor,
   type MessageBatcher,
-  // type MessageObject,
   type InternalMessageProcessor,
   type ExternalMessageProcessor,
 } from './types';
-let globalBatcher: MessageBatcher | null = null;
+export const globalBatchers = new Map<string, MessageBatcher>();
 
 export function createMessageBatcher(
   processors: InternalMessageProcessor[] | MessageProcessor[],
   config: BatcherConfig
 ): MessageBatcher {
+  const id = config.id ?? 'default';
   const isSingleton = config.singleton ?? true;
-  if (isSingleton && globalBatcher) {
-    return globalBatcher;
+  const existingBatcher = globalBatchers.get(id);
+  if (isSingleton && existingBatcher) {
+    return existingBatcher;
   }
   let processInterval: NodeJS.Timeout | null = null;
   const queues: Map<string, Message[]> = new Map();
@@ -230,13 +231,13 @@ export function createMessageBatcher(
     queues.clear();
     extraProcessors = [];
     processorNames.clear();
-    globalBatcher = null;
+    globalBatchers.delete(id);
   }
 
   // Initialize processing
   startProcessing();
 
-  globalBatcher = {
+  const batcher: MessageBatcher = {
     info,
     warning,
     error,
@@ -252,5 +253,7 @@ export function createMessageBatcher(
     removeAllExtraProcessors,
   };
 
-  return globalBatcher;
+  globalBatchers.set(id, batcher);
+
+  return batcher;
 }
