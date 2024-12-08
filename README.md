@@ -67,8 +67,8 @@ const consoleProcessor = createCustomProcessor({
   name: 'console',
   type: 'external',
   processBatch: async (messages: Message[]) => {
-    for (const [, text, level] of messages) {
-      console.log(`[${level.toUpperCase()}] ${text}`);
+    for (const msg of messages) {
+      console.log(`[${msg[2].toUpperCase()}] ${msg[1]}`);
     }
   },
 });

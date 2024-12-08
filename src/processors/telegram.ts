@@ -41,13 +41,12 @@ export function createTelegramProcessor(
     try {
       const texts = await Promise.all(
         messages.map(async (msg) => {
-          const [, text, level, error] = msg;
-          if (!text.trim()) return null;
-          const prefix = level.toUpperCase();
-          let message = `${EMOJIS.get(level) ?? ''} [${prefix}] ${text}`;
+          if (!msg[1].trim()) return null;
+          const prefix = msg[2].toUpperCase();
+          let message = `${EMOJIS.get(msg[2]) ?? ''} [${prefix}] ${msg[1]}`;
 
-          if (level === 'error' && error) {
-            const classified = await classifyError(error);
+          if (msg[2] === 'error' && msg[3]) {
+            const classified = await classifyError(msg[3]);
             message += '\n' + formatClassifiedError(classified);
           }
 

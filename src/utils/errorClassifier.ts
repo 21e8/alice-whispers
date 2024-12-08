@@ -41,7 +41,9 @@ const DEFAULT_ERROR_PATTERNS: ErrorPatternConfig[] = [
 // Store custom patterns
 let customPatterns: ErrorPattern[] = [];
 
-export function addErrorPatterns(patterns: readonly ErrorPatternConfig[]): void {
+export function addErrorPatterns(
+  patterns: readonly ErrorPatternConfig[]
+): void {
   customPatterns = customPatterns.concat(patterns.map(configToPattern));
 }
 
@@ -78,67 +80,67 @@ export type ClassifiedError = readonly [
 export async function classifyError(
   error: Error | string
 ): Promise<ClassifiedError> {
-  const message = error instanceof Error ? error.message : error;
+  const msg = error instanceof Error ? error.message : error;
   const now = Date.now();
 
   const patterns = getPatterns();
 
-  for (const [pattern, category, severity, aggregation] of patterns) {
+  for (const p of patterns) {
     let matches = false;
-    if (pattern instanceof RegExp) {
-      matches = pattern.test(message);
-    } else if (pattern instanceof Promise) {
-      matches = await pattern;
+    if (p[0] instanceof RegExp) {
+      matches = p[0].test(msg);
+    } else if (p[0] instanceof Promise) {
+      matches = await p[0];
     } else {
-      matches = await pattern(message);
+      matches = await p[0](msg);
     }
 
     if (matches) {
       const details: string[] = [];
-      let trackerKey = category;
+      let trackerKey = p[1];
 
-      if (category === 'DATABASE_CONSTRAINT_VIOLATION') {
-        const constraint = message.match(/constraint "([^"]+)"/)?.[1];
+      if (p[1] === 'DATABASE_CONSTRAINT_VIOLATION') {
+        const constraint = msg.match(/constraint "([^"]+)"/)?.[1];
         if (constraint) {
           details.push('constraint', constraint);
           trackerKey += `:${constraint}`;
         }
       }
 
-      if (aggregation) {
-        const [windowMs, countThreshold] = aggregation;
+      if (p[3]) {
         const tracker = errorTracker.get(trackerKey) || [[], 0, now];
-        const [timestamps, count, firstOccurrence] = tracker;
 
         // Clean old timestamps
-        const validTimestamps = timestamps.filter((t) => t > now - windowMs);
+        const validTimestamps = tracker[0].filter(
+          (t) => t > now - (p[3]?.[0] ?? 0)
+        );
         validTimestamps.push(now);
 
         errorTracker.set(trackerKey, [
           validTimestamps,
-          count + 1,
-          firstOccurrence,
+          tracker[1] + 1,
+          tracker[2],
         ]);
 
-        if (validTimestamps.length >= countThreshold) {
-          const timeWindow = Math.ceil((now - firstOccurrence) / 1000);
+        if (validTimestamps.length >= (p[3]?.[1] ?? 0)) {
+          const timeWindow = Math.ceil((now - tracker[2]) / 1000);
           return [
-            message,
-            category,
-            severity,
+            msg,
+            p[1],
+            p[2],
             details,
             true,
-            count + 1,
+            tracker[1] + 1,
             `${timeWindow}s`,
           ];
         }
       }
 
-      return [message, category, severity, details, false];
+      return [msg, p[1], p[2], details, false];
     }
   }
 
-  return [message, 'UNKNOWN_ERROR', 'medium', [], false];
+  return [msg, 'UNKNOWN_ERROR', 'medium', [], false];
 }
 
 // Helper to convert classified error to readable format
