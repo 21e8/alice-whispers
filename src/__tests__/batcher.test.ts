@@ -139,20 +139,16 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle processor removal with invalid name', async () => {
-    const invalidProcessor = {
-      type: 'external' as const,
-      name: 'invalid',
-      processBatch: jest.fn(),
-    };
-
+    const consoleSpy = jest.spyOn(console, 'error');
+    
     batcher = createMessageBatcher([mockProcessor], {
       maxBatchSize: 5,
       maxWaitMs: 100,
     });
 
-    // Should log error and not remove processor
-    batcher.removeExtraProcessor(invalidProcessor.name);
-    expect(invalidProcessor.processBatch).not.toHaveBeenCalled();
+    batcher.removeExtraProcessor('invalid');
+    expect(consoleSpy).toHaveBeenCalledWith('Processor invalid not found');
+    consoleSpy.mockRestore();
   });
 
   it('should process batch when maxBatchSize is reached', async () => {
@@ -238,7 +234,6 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle batch processing errors', async () => {
-    // resetGlobalBatcher();
     const errorProcessor = {
       type: 'external' as const,
       name: 'error',
@@ -300,5 +295,90 @@ describe('MessageBatcher', () => {
     });
 
     expect(secondBatcher).toBe(firstBatcher);
+  });
+
+  it('should reuse singleton instance', () => {
+    const firstBatcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      singleton: true,
+    });
+
+    const secondBatcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      singleton: true,
+    });
+
+    expect(firstBatcher).toBe(secondBatcher);
+  });
+
+  it('should handle duplicate processor error', () => {
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    const consoleSpy = jest.spyOn(console, 'error');
+    batcher.addExtraProcessor({
+      type: 'external',
+      name: 'mock',
+      processBatch: jest.fn(),
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith('Processor mock already exists');
+    consoleSpy.mockRestore();
+  });
+
+  it('should handle empty queue processing', async () => {
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    await batcher.processBatch('default');
+    expect(mockProcessor.processBatch).not.toHaveBeenCalled();
+  });
+
+  it('should cleanup timers when processing batch', async () => {
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+    
+    // Queue a message which creates a timer
+    batcher.info('test');
+    
+    // Process the batch which should clear the timer
+    await batcher.flush();
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it('should handle concurrent processing errors', async () => {
+    const failingProcessor = {
+      type: 'external' as const,
+      name: 'failing',
+      processBatch: jest.fn().mockRejectedValue(new Error('Concurrent error')),
+    };
+
+    batcher = createMessageBatcher([mockProcessor, failingProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      concurrentProcessors: 2,
+    });
+
+    const consoleSpy = jest.spyOn(console, 'error');
+    batcher.info('test message');
+    await batcher.flush();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Processor failing failed:',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
   });
 });
