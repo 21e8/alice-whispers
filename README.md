@@ -106,6 +106,44 @@ try {
 }
 ```
 
+## Message Structure
+
+Messages are internally stored as tuples with the following structure:
+
+```typescript
+type Message = [
+  chatId,     // Position 0: string - Identifier for the chat/channel
+  text,       // Position 1: string - The message content
+  level,      // Position 2: 'info' | 'warning' | 'error' - Message level
+  error?      // Position 3: Optional Error | string - Error details
+];
+```
+
+- **Position 0 (chatId)**: String identifier for the target chat or channel
+- **Position 1 (text)**: The actual message content to be sent
+- **Position 2 (level)**: Notification level indicating message importance
+- **Position 3 (error)**: Optional error object or string for error messages
+
+## Error Pattern Structure
+
+Error patterns are internally stored as tuples with the following structure:
+
+```typescript
+type ErrorPattern = readonly [
+  pattern,    // Position 0: RegExp | function - Pattern to match errors
+  category,   // Position 1: string - Category name for grouping similar errors
+  severity,   // Position 2: 'low' | 'medium' | 'high' | string - Error severity
+  [windowMs, countThreshold]? // Position 3: Optional aggregation settings
+];
+```
+
+- **Position 0 (pattern)**: Can be a RegExp or a function that returns boolean/Promise<boolean>
+- **Position 1 (category)**: String identifier to group similar errors
+- **Position 2 (severity)**: Error severity level ('low', 'medium', 'high', or custom string)
+- **Position 3 (aggregation)**: Optional tuple of [windowMs, countThreshold]
+  - windowMs: Time window in milliseconds for aggregation
+  - countThreshold: Number of occurrences needed to trigger aggregation
+
 ## Advanced Usage
 
 ### Multiple Processors

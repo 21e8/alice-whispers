@@ -40,6 +40,7 @@ const DEFAULT_ERROR_PATTERNS: ErrorPatternConfig[] = [
 
 // Store custom patterns
 let customPatterns: ErrorPattern[] = [];
+const defaultPatterns = DEFAULT_ERROR_PATTERNS.map(configToPattern);
 
 export function addErrorPatterns(
   patterns: readonly ErrorPatternConfig[]
@@ -53,7 +54,7 @@ export function resetErrorPatterns(): void {
 
 // Get all patterns (custom patterns take precedence)
 function getPatterns(): ErrorPattern[] {
-  return [...customPatterns, ...DEFAULT_ERROR_PATTERNS.map(configToPattern)];
+  return [...customPatterns, ...defaultPatterns];
 }
 
 // Track error occurrences using arrays
