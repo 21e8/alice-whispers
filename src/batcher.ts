@@ -22,9 +22,7 @@ export class BatchAggregateError extends Error {
 
 export const globalBatchers = new Map<string, MessageBatcher>();
 
-export function createMessageBatcher(
-  config: BatcherConfig
-): MessageBatcher {
+export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
   const id = config.id ?? 'default';
   const isSingleton = config.singleton ?? true;
   const existingBatcher = globalBatchers.get(id);
@@ -51,7 +49,9 @@ export function createMessageBatcher(
     }, maxWaitMs);
   }
 
-  function addProcessor(processor: ExternalMessageProcessor | InternalMessageProcessor): void {
+  function addProcessor(
+    processor: ExternalMessageProcessor | InternalMessageProcessor
+  ): void {
     if (processorNames.has(processor.name)) {
       console.error(`Processor ${processor.name} already exists`);
       return;
@@ -103,26 +103,38 @@ export function createMessageBatcher(
     error?: Error | string
   ): void {
     const chatId = 'default';
+
+    // Ensure atomic queue creation
     if (!queues.has(chatId)) {
       queues.set(chatId, new Queue<Message>());
     }
-
-    const queue = queues.get(chatId) ?? new Queue();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const queue = queues.get(chatId)!;
     queue.enqueue([chatId, message, level, error]);
 
-    // Set a timeout to process this batch if maxBatchSize isn't reached
-    if (queue.size < maxBatchSize) {
-      const existingTimer = timers.get(chatId);
-      if (!existingTimer) {
-        const timer = setTimeout(() => {
-          processBatch(chatId);
-          timers.delete(chatId);
-        }, maxWaitMs);
-        timers.set(chatId, timer);
-      }
-    } else {
+    // Clear any existing timer since we're either:
+    // - Setting a new timer for the updated queue size
+    // - Processing immediately due to max size
+    const existingTimer = timers.get(chatId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      timers.delete(chatId);
+    }
+
+    if (queue.size >= maxBatchSize) {
       // Process immediately if maxBatchSize is reached
-      processBatch(chatId);
+      processBatch(chatId).catch((error) => {
+        console.error('Error processing batch:', error);
+      });
+    } else {
+      // Set new timer for delayed processing
+      const timer = setTimeout(() => {
+        processBatch(chatId).catch((error) => {
+          console.error('Error processing batch:', error);
+        });
+        timers.delete(chatId);
+      }, maxWaitMs);
+      timers.set(chatId, timer);
     }
   }
 
