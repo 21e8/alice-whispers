@@ -44,7 +44,7 @@ export function createTelegramProcessor(
           const [, text, level, error] = msg;
           if (!text.trim()) return null;
           const prefix = level.toUpperCase();
-          let message = `${EMOJIS.get(level)} [${prefix}] ${text}`;
+          let message = `${EMOJIS.get(level) ?? ''} [${prefix}] ${text}`;
 
           if (level === 'error' && error) {
             const classified = await classifyError(error);

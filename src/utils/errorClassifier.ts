@@ -17,7 +17,7 @@ export type ErrorPatternConfig = {
 };
 
 // Internal tuple type for storage
-type ErrorPattern = readonly [
+export type ErrorPattern = readonly [
   (
     | RegExp
     | ((message: string) => boolean)
@@ -94,7 +94,7 @@ const errorTracker = new Map<
 >();
 
 // Result tuple type
-type ClassifiedError = readonly [
+export type ClassifiedError = readonly [
   string, // originalMessage
   string, // category
   SeverityLevel, // severity
