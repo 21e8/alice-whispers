@@ -477,4 +477,80 @@ describe('MessageBatcher', () => {
     await (batcher as any).processBatch('nonexistent');
     expect(mockProcessor.processBatch).not.toHaveBeenCalled();
   });
+
+  it('should handle singleton initialization', () => {
+    const firstBatcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      singleton: true,
+    });
+
+    // Store reference to global batcher
+    const globalBatcher = firstBatcher;
+
+    // Create new batcher with different config
+    const secondBatcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 10, // Different config
+      maxWaitMs: 200,
+      singleton: true,
+    });
+
+    // Should return the same instance
+    expect(secondBatcher).toBe(globalBatcher);
+  });
+
+  it('should handle processor removal edge cases', async () => {
+    const processor1 = {
+      type: 'external' as const,
+      name: 'test1',
+      processBatch: jest.fn(),
+    };
+    const processor2 = {
+      type: 'external' as const,
+      name: 'test2',
+      processBatch: jest.fn(),
+    };
+
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    // Add both processors
+    batcher.addExtraProcessor(processor1);
+    batcher.addExtraProcessor(processor2);
+
+    // Remove processor1 specifically
+    batcher.removeExtraProcessor(processor1.name);
+
+    // Verify only processor1 was removed
+    batcher.info('test');
+    await batcher.flush();
+
+    expect(processor1.processBatch).not.toHaveBeenCalled();
+    expect(processor2.processBatch).toHaveBeenCalled();
+
+    // Now remove all processors
+    batcher.removeAllExtraProcessors();
+
+    // Send another message
+    batcher.info('test2');
+    await batcher.flush();
+
+    // Verify processor2 wasn't called again
+    expect(processor2.processBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('should handle null queue case', async () => {
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    // Force queue to be null/undefined
+    (batcher as any).queues.set('default', null);
+
+    await batcher.processBatch('default');
+    expect(mockProcessor.processBatch).not.toHaveBeenCalled();
+  });
 });
