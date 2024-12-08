@@ -162,7 +162,7 @@ export function createMessageBatcher(
 
   const exhaustBatcher = async (
     processor: MessageProcessor | InternalMessageProcessor,
-    batch: Message[]
+    queue: Message[]
   ): Promise<void> => {
     if (typeof processor.processBatch !== 'function') {
       const error = new Error('processBatch is not a function');
@@ -171,7 +171,7 @@ export function createMessageBatcher(
     }
 
     try {
-      await processor.processBatch(batch);
+      await processor.processBatch(queue);
     } catch (error) {
       const wrappedError =
         error instanceof Error ? error : new Error(String(error));
@@ -191,14 +191,15 @@ export function createMessageBatcher(
       timers.delete(chatId);
     }
 
-    const batch = [...queue];
     queues.set(chatId, []);
 
-    const allProcessors = [...processors, ...extraProcessors];
+    const allProcessors = extraProcessors.length
+      ? [...processors, ...extraProcessors]
+      : processors;
     const errors = await concurrentExhaust(
       allProcessors as InternalMessageProcessor[],
       concurrentProcessors,
-      (processor) => exhaustBatcher(processor, batch)
+      (processor) => exhaustBatcher(processor, queue)
     );
 
     if (errors.length > 0) {
@@ -213,7 +214,6 @@ export function createMessageBatcher(
     const queue = queues.get(chatId);
     if (!queue?.length) return;
 
-    const batch = [...queue];
     queues.set(chatId, []);
 
     const errors: Error[] = [];
@@ -221,11 +221,11 @@ export function createMessageBatcher(
     for (const processor of processors) {
       try {
         if (processor.processBatchSync) {
-          processor.processBatchSync(batch);
+          processor.processBatchSync(queue);
         } else if (processor.processBatch) {
           // For async processBatch, we'll catch and log errors
           // We need to handle this differently since we can't await in sync context
-          const result = processor.processBatch(batch);
+          const result = processor.processBatch(queue);
           if (result instanceof Promise) {
             result.catch((error: unknown) => {
               const wrappedError =
