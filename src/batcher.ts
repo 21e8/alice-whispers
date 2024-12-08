@@ -6,6 +6,7 @@ import {
   type MessageBatcher,
   MessageObject,
   InternalMessageProcessor,
+  ExternalMessageProcessor,
 } from './types';
 let globalBatcher: MessageBatcher | null = null;
 
@@ -25,41 +26,56 @@ function isMessageObjectArray(
 }
 
 const convertProcessBatch = async (
-  processor: MessageProcessor,
-  messages: MessageObject[] | Message[]
+  processor: ExternalMessageProcessor,
+  messages: MessageObject[]
 ) => {
   if (!processor.processBatch) {
     throw new Error('processBatch is not a function');
   }
   if (isMessageObjectArray(messages)) {
-    await processor.processBatch(
-      messages.map((msg) => [msg.chatId, msg.text, msg.level, msg.error])
-    );
+    await processor.processBatch(messages);
   } else {
     await processor.processBatch(messages);
   }
 };
 
 const convertProcessBatchSync = (
-  processor: MessageProcessor,
-  messages: MessageObject[] | Message[]
+  processor: ExternalMessageProcessor,
+  messages: MessageObject[]
 ) => {
   if (isMessageObjectArray(messages)) {
-    (processor.processBatchSync || processor.processBatch)(
-      messages.map(objectToMessage)
-    );
+    (processor.processBatchSync || processor.processBatch)(messages);
   } else {
     (processor.processBatchSync || processor.processBatch)(messages);
   }
 };
 
-function adaptProcessor(processor: MessageProcessor): MessageProcessor {
+export function adaptProcessor(
+  processor: ExternalMessageProcessor
+): MessageProcessor {
   return {
     type: processor.type,
     name: processor.name,
-    processBatch: (messages) => convertProcessBatch(processor, messages),
+    processBatch: (messages) =>
+      convertProcessBatch(
+        processor,
+        messages.map(([chatId, text, level, error]) => ({
+          chatId,
+          text,
+          level,
+          error,
+        }))
+      ),
     processBatchSync: (messages) =>
-      convertProcessBatchSync(processor, messages),
+      convertProcessBatchSync(
+        processor,
+        messages.map(([chatId, text, level, error]) => ({
+          chatId,
+          text,
+          level,
+          error,
+        }))
+      ),
   };
 }
 
@@ -74,7 +90,7 @@ export function createMessageBatcher(
   let processInterval: NodeJS.Timeout | null = null;
   const queues: Map<string, Message[]> = new Map();
   const timers: Map<string, NodeJS.Timeout> = new Map();
-  let extraProcessors: (MessageProcessor | InternalMessageProcessor)[] = [];
+  let extraProcessors: MessageProcessor[] = [];
   const processorNames = new Set<string>();
   const concurrentProcessors = config.concurrentProcessors ?? 3;
   const maxBatchSize = config.maxBatchSize ?? 100;
@@ -97,7 +113,7 @@ export function createMessageBatcher(
     }, maxWaitMs);
   }
 
-  function addExtraProcessor(processor: MessageProcessor): void {
+  function addExtraProcessor(processor: ExternalMessageProcessor): void {
     if (processorNames.has(processor.name)) {
       console.error(`Processor ${processor.name} already exists`);
       return;
@@ -109,19 +125,19 @@ export function createMessageBatcher(
   function removeAllExtraProcessors(): void {
     for (const processor of extraProcessors) {
       if (processor.type === 'external') {
-        removeExtraProcessor(processor);
+        removeExtraProcessor(processor.name);
       }
     }
     extraProcessors = [];
   }
 
-  function removeExtraProcessor(processor: MessageProcessor): void {
-    if (!processorNames.has(processor.name)) {
-      console.error(`Processor ${processor.name} not found`);
+  function removeExtraProcessor(name: string): void {
+    if (!processorNames.has(name)) {
+      console.error(`Processor ${name} not found`);
       return;
     }
-    extraProcessors = extraProcessors.filter((p) => p.name !== processor.name);
-    processorNames.delete(processor.name);
+    extraProcessors = extraProcessors.filter((p) => p.name !== name);
+    processorNames.delete(name);
   }
 
   function info(message: string): void {
@@ -225,8 +241,10 @@ export function createMessageBatcher(
     queues.set(chatId, []);
 
     const allProcessors = [...processors, ...extraProcessors];
-    await concurrentExhaust(allProcessors, concurrentProcessors, (processor) =>
-      exhaustBatcher(processor, batch)
+    await concurrentExhaust(
+      allProcessors as InternalMessageProcessor[],
+      concurrentProcessors,
+      (processor) => exhaustBatcher(processor, batch)
     );
   }
 

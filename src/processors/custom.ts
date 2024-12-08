@@ -1,3 +1,4 @@
+import { adaptProcessor } from '../batcher';
 import { MessageObject } from '../types';
 
 import { MessageProcessor } from '../types';
@@ -11,10 +12,10 @@ export function createCustomProcessor({
   processBatch: (messages: MessageObject[]) => Promise<void>;
   processBatchSync?: (messages: MessageObject[]) => void;
 }): MessageProcessor {
-  return {
+  return adaptProcessor({
     type: 'external',
     name,
     processBatch: processBatch || processBatchSync,
     processBatchSync: processBatchSync || processBatch,
-  };
+  });
 }

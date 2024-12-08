@@ -52,6 +52,13 @@ export interface MessageProcessor {
   processBatch(messages: Message[]): void | Promise<void>;
   processBatchSync?(messages: Message[]): void;
 }
+// External processor interface
+export interface ExternalMessageProcessor {
+  type: 'external';
+  name: string;
+  processBatch(messages: MessageObject[]): void | Promise<void>;
+  processBatchSync?(messages: MessageObject[]): void;
+}
 
 // Helper type to convert external processor to internal
 export type ProcessorAdapter = (
@@ -69,8 +76,8 @@ export interface MessageBatcher {
   destroy(): void;
   queues: Map<string, Message[]>;
   timers: Map<string, NodeJS.Timeout>;
-  addExtraProcessor(processor: MessageProcessor): void;
-  removeExtraProcessor(processor: MessageProcessor): void;
+  addExtraProcessor(processor: ExternalMessageProcessor): void;
+  removeExtraProcessor(name: string): void;
   removeAllExtraProcessors(): void;
 }
 

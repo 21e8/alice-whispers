@@ -51,7 +51,11 @@ describe('MessageBatcher', () => {
     await batcher.flush();
 
     expect(processBatchSpy).toHaveBeenCalledWith([
-      ['default', 'test message', 'info', undefined],
+      {
+        chatId: 'default',
+        text: 'test message',
+        level: 'info',
+      },
     ]);
     expect(mockProcessor.processBatch).toHaveBeenCalledWith([
       ['default', 'test message', 'info', undefined],
@@ -131,7 +135,7 @@ describe('MessageBatcher', () => {
 
     expect(extraProcessor.processBatch).toHaveBeenCalled();
 
-    batcher.removeExtraProcessor(extraProcessor);
+    batcher.removeExtraProcessor(extraProcessor.name);
     batcher.info('another message');
     await batcher.flush();
 
@@ -151,7 +155,7 @@ describe('MessageBatcher', () => {
     });
 
     // Should log error and not remove processor
-    batcher.removeExtraProcessor(invalidProcessor);
+    batcher.removeExtraProcessor(invalidProcessor.name);
     expect(invalidProcessor.processBatch).not.toHaveBeenCalled();
   });
 
