@@ -1,6 +1,6 @@
 {
   "name": "alice-whispers",
-  "version": "0.2.21",
+  "version": "0.2.22",
   "description": "Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification",
   "type": "module",
   "main": "./dist/cjs/index.js",
@@ -49,8 +49,6 @@
   "author": "0xAlice",
   "license": "MIT",
   "dependencies": {
-    "node-fetch": "^3.3.0",
-    "nodemailer": "^6.9.16",
     "typescript": "^4.9.5"
   },
   "devDependencies": {

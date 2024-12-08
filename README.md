@@ -4,13 +4,14 @@ Intelligent message batching system that whispers your messages in perfect harmo
 
 ## Features
 
-- 🎭 Elegant: Beautiful message formatting and intelligent error handling
+- 🎭 **Zero Dependencies** - Only TypeScript as a peer dependency, keeping your project lean and secure
+- 🔄 Smart message batching with configurable batch sizes and timing
+- 🎯 Intelligent error classification and pattern matching
+- 📊 Error aggregation with customizable time windows
 - 🚀 High Performance: Uses array-based message format for minimal memory overhead
-- 🔄 Smart Batching: Automatically batches messages to reduce API calls
-- ⚡ Concurrent Processing: Supports multiple processors running in parallel
-- 🔌 Extensible: Easy to add custom message processors
-- 🎯 Type-Safe: Written in TypeScript with full type coverage
-- 🛡️ Error Classification: Built-in error pattern matching and aggregation
+- 🔌 Extensible processor system for custom implementations
+- 🎭 Elegant: Beautiful message formatting and intelligent error handling
+- 💪 Written in TypeScript with full type safety
 
 ## Installation
 
