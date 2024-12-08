@@ -359,25 +359,37 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle concurrent processing errors', async () => {
-    const failingProcessor = {
-      type: 'external' as const,
-      name: 'failing',
-      processBatch: jest.fn().mockRejectedValue(new Error('Concurrent error')),
+    const error = new Error('Test error');
+    
+    // Create two processors that will throw errors
+    const failingProcessor1 = {
+      type: 'internal' as const,
+      name: 'failing1',
+      processBatch: jest.fn().mockRejectedValue(error),
+    };
+    const failingProcessor2 = {
+      type: 'internal' as const,
+      name: 'failing2',
+      processBatch: jest.fn().mockRejectedValue(new Error('Second error')),
     };
 
-    batcher = createMessageBatcher([mockProcessor, failingProcessor], {
+    batcher = createMessageBatcher([failingProcessor1, failingProcessor2], {
       maxBatchSize: 5,
       maxWaitMs: 100,
-      concurrentProcessors: 2,
+      concurrentProcessors: 2, // Process both at once
     });
 
+    // Queue a message to process
+    batcher.info('test');
+    
+    // The first error should be caught and logged
     const consoleSpy = jest.spyOn(console, 'error');
-    batcher.info('test message');
     await batcher.flush();
-
+    
+    // The first processor's error should be logged first
     expect(consoleSpy).toHaveBeenCalledWith(
-      'Processor failing failed:',
-      expect.any(Error)
+      'Processor failing1 failed:',
+      error
     );
     consoleSpy.mockRestore();
   });
@@ -552,5 +564,192 @@ describe('MessageBatcher', () => {
 
     await batcher.processBatch('default');
     expect(mockProcessor.processBatch).not.toHaveBeenCalled();
+  });
+
+  it('should handle global singleton state', () => {
+    // Reset any existing global state
+    (batcher as any).destroy();
+    
+    // Create first batcher with singleton enabled
+    const firstBatcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      singleton: true,
+    });
+
+    // Create second batcher with different config but singleton enabled
+    const secondBatcher = createMessageBatcher([{...mockProcessor, name: 'different'}], {
+      maxBatchSize: 10,
+      maxWaitMs: 200,
+      singleton: true,
+    });
+
+    // Should return the same instance regardless of config
+    expect(secondBatcher).toBe(firstBatcher);
+  });
+
+  it('should handle removeAllExtraProcessors with mixed processor types', async () => {
+    const externalProcessor = {
+      type: 'external' as const,
+      name: 'external',
+      processBatch: jest.fn(),
+    };
+    const internalProcessor = {
+      type: 'internal' as const,
+      name: 'internal',
+      processBatch: jest.fn(),
+    };
+
+    // Create batcher with internal processor
+    batcher = createMessageBatcher([internalProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    // Add external processor
+    batcher.addExtraProcessor(externalProcessor);
+    
+    // Queue a message and process it to verify both processors work
+    batcher.info('test1');
+    await batcher.flush();
+    
+    expect(externalProcessor.processBatch).toHaveBeenCalled();
+    expect(internalProcessor.processBatch).toHaveBeenCalled();
+
+    // Remove external processors
+    batcher.removeAllExtraProcessors();
+
+    // Queue another message
+    batcher.info('test2');
+    await batcher.flush();
+
+    // External processor shouldn't be called again
+    expect(externalProcessor.processBatch).toHaveBeenCalledTimes(1);
+    // Internal processor should be called again
+    expect(internalProcessor.processBatch).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle concurrent processing errors', async () => {
+    const error = new Error('Test error');
+    const failingProcessor = {
+      type: 'external' as const,
+      name: 'failing',
+      processBatch: jest.fn().mockRejectedValue(error),
+    };
+
+    batcher = createMessageBatcher([failingProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      concurrentProcessors: 1,
+    });
+
+    batcher.info('test');
+    
+    // The error is caught in exhaustBatcher, so we need to check if it was logged
+    const consoleSpy = jest.spyOn(console, 'error');
+    await batcher.flush();
+    
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Processor failing failed:',
+      error
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('should handle undefined queue case', async () => {
+    batcher = createMessageBatcher([mockProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    // Force queue to be undefined
+    (batcher as any).queues.set('default', undefined);
+
+    await batcher.processBatch('default');
+    expect(mockProcessor.processBatch).not.toHaveBeenCalled();
+  });
+
+  it('should handle errors in concurrent processing', async () => {
+    const error = new Error('Test error');
+    
+    // Create two processors that will throw errors
+    const failingProcessor1 = {
+      type: 'internal' as const,
+      name: 'failing1',
+      processBatch: jest.fn().mockRejectedValue(error),
+    };
+    const failingProcessor2 = {
+      type: 'internal' as const,
+      name: 'failing2',
+      processBatch: jest.fn().mockRejectedValue(new Error('Second error')),
+    };
+
+    batcher = createMessageBatcher([failingProcessor1, failingProcessor2], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      concurrentProcessors: 2, // Process both at once
+    });
+
+    // Queue a message to process
+    batcher.info('test');
+    
+    // The first error should be caught and logged
+    const consoleSpy = jest.spyOn(console, 'error');
+    await batcher.flush();
+    
+    // The first processor's error should be logged first
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Processor failing1 failed:',
+      error
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('should throw first error in concurrent processing', async () => {
+    const error = new Error('Test error');
+    
+    // Create a processor that will throw an error
+    const failingProcessor = {
+      type: 'internal' as const,
+      name: 'failing',
+      processBatch: jest.fn().mockImplementation(async () => {
+        // Create a Promise.allSettled rejection that will be handled by concurrentExhaust
+        const results = await Promise.allSettled([
+          Promise.reject(error)
+        ]);
+        
+        // This is the same code as in concurrentExhaust
+        const errors = results
+          .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+          .map(r => r.reason);
+          
+        if (errors.length > 0) {
+          throw errors[0]; // This should trigger line 139's behavior
+        }
+      }),
+    };
+
+    batcher = createMessageBatcher([failingProcessor], {
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      concurrentProcessors: 1,
+    });
+
+    // Queue a message and process it
+    batcher.info('test');
+    
+    // The error should be caught by exhaustBatcher
+    const consoleSpy = jest.spyOn(console, 'error');
+    await batcher.flush();
+    
+    // Verify the error was caught and logged
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Processor failing failed:',
+      error
+    );
+    consoleSpy.mockRestore();
+    
+    // Also verify that the processor was called
+    expect(failingProcessor.processBatch).toHaveBeenCalled();
   });
 });

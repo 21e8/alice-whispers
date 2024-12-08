@@ -189,17 +189,15 @@ export function createMessageBatcher(
         if (processor.processBatchSync) {
           processor.processBatchSync(batch);
         } else {
-          if (processor.type === 'external') {
-            try {
-              const result = processor.processBatch(batch);
-              if (result instanceof Promise) {
-                result.catch((error: Error) => {
-                  console.error(`Processor ${processor.name} failed:`, error);
-                });
-              }
-            } catch (error) {
-              console.error(`Processor ${processor.name} failed:`, error);
+          try {
+            const result = processor.processBatch(batch);
+            if (result instanceof Promise) {
+              result.catch((error: Error) => {
+                console.error(`Processor ${processor.name} failed:`, error);
+              });
             }
+          } catch (error) {
+            console.error(`Processor ${processor.name} failed:`, error);
           }
         }
       } catch (error) {
