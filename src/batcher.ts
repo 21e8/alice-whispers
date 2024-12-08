@@ -116,11 +116,13 @@ export function createMessageBatcher(
     items: T[],
     concurrency: number,
     processor: (item: T) => Promise<void>
-  ): Promise<void> {
+  ): Promise<Error[]> {
     const chunks = [];
     for (let i = 0; i < items.length; i += concurrency) {
       chunks.push(items.slice(i, i + concurrency));
     }
+
+    const errors: Error[] = [];
 
     for (const chunk of chunks) {
       // Process each item in the chunk and collect results
@@ -129,17 +131,17 @@ export function createMessageBatcher(
       );
 
       // Check for any rejections
-      const errors = results
+      const chunkErrors = results
         .filter(
           (result): result is PromiseRejectedResult =>
             result.status === 'rejected'
         )
         .map((result) => result.reason);
 
-      if (errors.length > 0) {
-        throw errors[0]; // Throw the first error encountered
-      }
+      errors.push(...chunkErrors);
     }
+
+    return errors;
   }
 
   const exhaustBatcher = async (
@@ -171,11 +173,15 @@ export function createMessageBatcher(
     queues.set(chatId, []);
 
     const allProcessors = [...processors, ...extraProcessors];
-    await concurrentExhaust(
+    const errors = await concurrentExhaust(
       allProcessors as InternalMessageProcessor[],
       concurrentProcessors,
       (processor) => exhaustBatcher(processor, batch)
     );
+
+    if (errors.length > 0) {
+      throw errors[0];
+    }
   }
 
   function processBatchSync(chatId: string): void {
