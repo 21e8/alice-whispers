@@ -132,7 +132,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     // Group messages by type for classification
     const messageGroups = new Map<string, Message[]>();
-    const processedMessages: Message[] = [];
+    const processedMessages: Queue<Message> = new Queue();
 
     // First pass: group similar messages
     for (const msg of messages) {
@@ -161,10 +161,12 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
         // For test messages, preserve the original format
         if (text.includes('message ')) {
-          processedMessages.push(...group);
+          for (const msg of group) {
+            processedMessages.enqueue(msg);
+          }
         } else {
           // For other messages, use the aggregated format
-          processedMessages.push([
+          processedMessages.enqueue([
             chatId,
             `[AGGREGATED] ${group.length} similar ${category} messages in last 2s`,
             level,
@@ -172,7 +174,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
         }
       } else {
         // Single messages aren't aggregated
-        processedMessages.push(group[0]);
+        processedMessages.enqueue(group[0]);
       }
     }
 
@@ -180,7 +182,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     const processingPromises = processors.map(async (processor) => {
       try {
-        await processor.processBatch(processedMessages);
+        await processor.processBatch(processedMessages.toArray());
       } catch (error) {
         errors.enqueue(error as Error);
       }

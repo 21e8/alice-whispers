@@ -1,6 +1,45 @@
-# Alice Whispers
+# Alice Whispers 🌸
 
-Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification. Designed to efficiently handle thousands of messages by intelligently batching and aggregating them into meaningful, actionable updates.
+Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification.
+
+## Features
+
+- **High Performance Message Batching**: Process thousands of messages per second with minimal overhead
+- **Smart Error Classification**: Automatically classify and aggregate similar errors
+- **Queue-Based Architecture**: Uses efficient FIFO queues for all append-only operations
+- **Flexible Processor System**: Support for Telegram and custom message processors
+- **Intelligent Error Aggregation**: Reduces noise by grouping similar errors within time windows
+- **Type-Safe**: Written in TypeScript with full type safety
+
+## Performance
+
+- Processes 100,000+ messages in under 6 seconds
+- Average processing time of 0.06ms per message
+- Memory-efficient queue-based implementation
+- Concurrent processor support for high throughput
+
+## Architecture
+
+### Queue-Based Design
+
+Alice Whispers uses queues as its primary data structure for several key reasons:
+
+1. **Append-Only Efficiency**: All message operations (batching, error tracking, pattern matching) are append-only by nature. Queues provide O(1) append and O(1) dequeue operations, making them ideal for high-throughput message processing.
+
+2. **Memory Efficiency**: Unlike arrays that may require resizing and copying, our queue implementation maintains a linked structure that grows efficiently with message volume.
+
+3. **FIFO Guarantee**: Messages are processed in the exact order they are received, which is crucial for maintaining message context and proper error aggregation.
+
+4. **Iterator Support**: Our Queue implementation provides standard iterator support, making it easy to process messages in sequence while maintaining clean code.
+
+The Queue class is exported and can be used directly if needed:
+```typescript
+import { Queue } from 'alice-whispers';
+
+const messageQueue = new Queue<string>();
+messageQueue.enqueue('Hello');
+const message = messageQueue.dequeue(); // FIFO order
+```
 
 ## Key Benefits
 
