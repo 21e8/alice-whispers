@@ -329,3 +329,49 @@ Output: Aggregated to just 4 meaningful messages:
 ℹ️ Progress updates aggregated by category
 ℹ️ Burst starts aggregated by category
 ```
+
+## Queue Implementation
+
+The library uses a custom Queue data structure (inspired by [yocto-queue](https://github.com/sindresorhus/yocto-queue)) for efficient message handling. The Queue provides constant time O(1) operations for both enqueue and dequeue operations, making it ideal for high-throughput message processing.
+
+### Why Use a Queue?
+- **Constant Time Operations**: Both enqueue and dequeue are O(1), unlike arrays where shift() is O(n)
+- **Memory Efficient**: Uses a linked list internally, no array resizing or copying
+- **FIFO Guarantee**: Messages are processed in the exact order they were received
+- **Iterator Support**: Can be used in for...of loops and spread operations
+
+### Queue Methods
+```typescript
+const queue = new Queue<Message>();
+
+// Add items - O(1)
+queue.enqueue(message);
+
+// Remove and return first item - O(1)
+const message = queue.dequeue();
+
+// Get size - O(1)
+const size = queue.size;
+
+// Convert to array - O(n)
+const array = queue.toArray();
+// or
+const array = [...queue];
+
+// Clear all items - O(1)
+queue.clear();
+```
+
+### Converting Between Arrays and Queues
+```typescript
+// Array to Queue
+const array = [1, 2, 3];
+const queue = new Queue(array);
+
+// Queue to Array
+const array = queue.toArray();
+// or use spread operator
+const array = [...queue];
+```
+
+The Queue is used internally for message batching and error collection, but when interfacing with external processors, the messages are converted to arrays for better compatibility.

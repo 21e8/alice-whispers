@@ -1,6 +1,6 @@
 {
   "name": "alice-whispers",
-  "version": "0.2.22",
+  "version": "0.2.23",
   "description": "Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification",
   "type": "module",
   "main": "./dist/cjs/index.js",
@@ -39,7 +39,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/21e8/telegram-batch-bot.git"
+    "url": "git+https://github.com/21e8/alice-whispers.git"
   },
   "keywords": [
     "telegram",

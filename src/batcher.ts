@@ -145,7 +145,9 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
           }
           await processor.processBatch(chunk);
         } catch (error) {
-          errors.enqueue(error instanceof Error ? error : new Error(String(error)));
+          errors.enqueue(
+            error instanceof Error ? error : new Error(String(error))
+          );
         }
       }
     }
@@ -158,10 +160,10 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     const chatIds = Array.from(queues.keys());
 
     await Promise.all(
-      chatIds.map(async chatId => {
+      chatIds.map(async (chatId) => {
         try {
           const result = await processBatch(chatId);
-          for (const error of result.toArray()) {
+          for (const error of result) {
             errors.enqueue(error);
           }
         } catch (error) {
@@ -170,7 +172,9 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
               errors.enqueue(e);
             }
           } else {
-            errors.enqueue(error instanceof Error ? error : new Error(String(error)));
+            errors.enqueue(
+              error instanceof Error ? error : new Error(String(error))
+            );
           }
         }
       })
