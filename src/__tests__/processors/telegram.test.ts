@@ -1,7 +1,7 @@
 import { createTelegramProcessor } from '../../processors/telegram';
 import type { Message, TelegramConfig } from '../../types';
 import Queue from '../../utils/queue';
-import { MockResponse } from '../test-utils';
+import { MockResponse } from '../test-utils/index.test';
 import { createMessageBatcher } from '../../batcher';
 
 describe('TelegramProcessor', () => {

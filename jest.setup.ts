@@ -1,4 +1,4 @@
-import { MockResponse } from "./src/__tests__/test-utils/index";
+import { MockResponse } from "./src/__tests__/test-utils/index.test";
 
 // Make this a module by adding an export
 export {};

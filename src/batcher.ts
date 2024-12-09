@@ -136,7 +136,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     // First pass: group similar messages
     for (const msg of messages) {
-      const [chatId, text, level, error] = msg;
+      const [, text, level, ] = msg;
       const classified = classifyMessage(text, level);
       const [, category, severity] = classified;
 
