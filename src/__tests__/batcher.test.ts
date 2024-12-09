@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { createMessageBatcher } from '../batcher';
+import { addErrorPatterns } from '../utils/classify';
 import {
   MessageBatcher,
   Message,
@@ -422,4 +423,104 @@ describe('MessageBatcher', () => {
     expect(errors.size).toBe(1);
     expect(errors.dequeue()?.message).toBe('Process error');
   }, 10000); // Increase timeout
+});
+
+describe('Message Classification', () => {
+  let batcher: MessageBatcher;
+  let processedMessages: Queue<Message>;
+  let mockProcessor: MessageProcessor;
+
+  beforeEach(() => {
+    processedMessages = new Queue<Message>();
+    mockProcessor = {
+      name: 'mock',
+      processBatch: jest.fn((messages) => {
+        messages.forEach(msg => processedMessages.enqueue(msg));
+      }),
+    };
+
+    // Clear any existing patterns
+    addErrorPatterns([
+      {
+        name: 'test',
+        pattern: /test error/i,
+        category: 'TEST_ERROR',
+        severity: 'low',
+        aggregation: {
+          windowMs: 1000,
+          countThreshold: 2,
+        },
+      },
+    ]);
+  });
+
+  it('should aggregate similar messages in a batch', async () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.addProcessor(mockProcessor);
+
+    // Queue similar messages
+    batcher.error('test error 1');
+    batcher.error('test error 2');
+    batcher.error('test error 3');
+    
+    await batcher.flush();
+
+    // Should be aggregated into one message
+    expect(processedMessages.size).toBe(1);
+    const message = processedMessages.dequeue();
+    expect(message?.[1]).toBe('[AGGREGATED] 3 similar TEST_ERROR messages in last 2s');
+  });
+
+  it('should not aggregate different message types', async () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.addProcessor(mockProcessor);
+
+    // Queue different types of messages
+    batcher.error('test error');
+    batcher.info('test info');
+    batcher.warning('test warning');
+    
+    await batcher.flush();
+
+    // Should not be aggregated
+    expect(processedMessages.size).toBe(3);
+  });
+
+  it('should handle mixed message types correctly', async () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.addProcessor(mockProcessor);
+
+    // Queue mixed message types
+    batcher.error('test error 1');
+    batcher.info('random info');
+    batcher.error('test error 2');
+    batcher.warning('random warning');
+    batcher.error('test error 3');
+    
+    await batcher.flush();
+
+    // Should have 3 messages: 1 aggregated error + 1 info + 1 warning
+    expect(processedMessages.size).toBe(3);
+    
+    const messages = processedMessages.toArray();
+    const errorCount = messages.filter(m => m[2] === 'error').length;
+    const infoCount = messages.filter(m => m[2] === 'info').length;
+    const warningCount = messages.filter(m => m[2] === 'warning').length;
+    
+    expect(errorCount).toBe(1); // Aggregated errors
+    expect(infoCount).toBe(1);
+    expect(warningCount).toBe(1);
+  });
 });

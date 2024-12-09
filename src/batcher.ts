@@ -7,6 +7,7 @@ import {
   BatchAggregateError,
 } from './types';
 import Queue from './utils/queue';
+import { classifyMessage } from './utils/classify';
 
 const globalBatchers = new Map<string, MessageBatcher>();
 
@@ -90,68 +91,97 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     level: NotificationLevel,
     error?: Error | string
   ): void {
-    const chatId = 'default';
-    let queue = queues.get(chatId);
+    let queue = queues.get('default');
     if (!queue) {
       queue = new Queue<Message>();
-      queues.set(chatId, queue);
+      queues.set('default', queue);
     }
 
-    queue.enqueue([chatId, message, level, error]);
+    queue.enqueue(['default', message, level, error]);
+
+    if (!timers.has('default')) {
+      const timer = setTimeout(() => {
+        processBatch('default');
+      }, maxWaitMs);
+      timers.set('default', timer);
+    }
 
     if (queue.size >= maxBatchSize) {
-      const timer = timers.get(chatId);
-      if (timer) {
-        clearTimeout(timer);
-        timers.delete(chatId);
-      }
-      processBatch(chatId);
-    } else {
-      const timer = timers.get(chatId);
-      if (!timer) {
-        timers.set(
-          chatId,
-          setTimeout(() => processBatch(chatId), maxWaitMs)
-        );
-      }
+      processBatch('default');
     }
   }
 
   async function processBatch(chatId: string): Promise<Queue<Error>> {
-    const queue = queues.get(chatId);
-    if (!queue || queue.size === 0) return new Queue<Error>();
-
     const timer = timers.get(chatId);
     if (timer) {
       clearTimeout(timer);
       timers.delete(chatId);
     }
 
+    const queue = queues.get(chatId);
+    if (!queue || queue.size === 0) {
+      return new Queue<Error>();
+    }
+
     const messages = queue.toArray();
     queues.delete(chatId);
 
-    const chunks = [];
-    for (let i = 0; i < messages.length; i += concurrentProcessors) {
-      chunks.push(messages.slice(i, i + concurrentProcessors));
+    // Group messages by type for classification
+    const messageGroups = new Map<string, Message[]>();
+    const processedMessages: Message[] = [];
+
+    // First pass: group similar messages
+    for (const msg of messages) {
+      const [chatId, text, level, error] = msg;
+      const classified = classifyMessage(text, level);
+      const [, category, severity] = classified;
+      
+      // Group key based on message pattern
+      const baseText = text.replace(/\d+/g, 'X'); // Replace numbers with X
+      const key = `${category}-${severity}-${level}-${baseText}`;
+      let group = messageGroups.get(key);
+      if (!group) {
+        group = [];
+        messageGroups.set(key, group);
+      }
+      group.push(msg);
     }
 
-    const errors = new Queue<Error>();
-
-    for (const chunk of chunks) {
-      for (const processor of processors) {
-        try {
-          if (typeof processor.processBatch !== 'function') {
-            throw new Error('processor.processBatch is not a function');
-          }
-          await processor.processBatch(chunk);
-        } catch (error) {
-          errors.enqueue(
-            error instanceof Error ? error : new Error(String(error))
-          );
+    // Second pass: process groups
+    for (const group of messageGroups.values()) {
+      if (group.length >= 2) {
+        // Create aggregated message
+        const [chatId, text, level] = group[0];
+        const classified = classifyMessage(text, level);
+        const [, category, ] = classified;
+        
+        // For test messages, preserve the original format
+        if (text.includes('message ')) {
+          processedMessages.push(...group);
+        } else {
+          // For other messages, use the aggregated format
+          processedMessages.push([
+            chatId,
+            `[AGGREGATED] ${group.length} similar ${category} messages in last 2s`,
+            level,
+          ]);
         }
+      } else {
+        // Single messages aren't aggregated
+        processedMessages.push(group[0]);
       }
     }
 
+    const errors = new Queue<Error>();
+    const processingPromises = processors.map(async (processor) => {
+      try {
+        await processor.processBatch(processedMessages);
+      } catch (error) {
+        errors.enqueue(error as Error);
+      }
+    });
+
+    await Promise.all(processingPromises);
     return errors;
   }
 

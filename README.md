@@ -174,21 +174,59 @@ type Message = [
 ];
 ```
 
-## Error Classification
+## Message Classification and Aggregation
 
-Built-in error classification and formatting:
+The library includes built-in message classification and aggregation for any message type (info, warning, or error):
 
 ```typescript
-import { classifyError, formatClassifiedError } from 'alice-whispers';
+import { addErrorPatterns } from 'alice-whispers';
 
-try {
-  // ... your code ...
-} catch (error) {
-  const classified = await classifyError(error);
-  const formatted = formatClassifiedError(classified);
-  batcher.error('Operation failed', formatted);
-}
+// Configure patterns for message classification and aggregation
+addErrorPatterns([
+  {
+    name: 'startupInfo',
+    pattern: /starting batch process/i,
+    category: 'STARTUP',
+    severity: 'low',
+    aggregation: {
+      windowMs: 60000, // 1 minute window
+      countThreshold: 5, // Aggregate after 5 similar messages
+    },
+  },
+  {
+    name: 'rateLimit',
+    pattern: /rate limit exceeded/i,
+    category: 'RATE_LIMIT',
+    severity: 'high',
+    aggregation: {
+      windowMs: 60000,
+      countThreshold: 10,
+    },
+  },
+  {
+    name: 'progressUpdate',
+    pattern: /processed \d+ items/i,
+    category: 'PROGRESS',
+    severity: 'low',
+    aggregation: {
+      windowMs: 30000, // 30 second window
+      countThreshold: 3,
+    },
+  },
+]);
+
+// Messages will be automatically classified and aggregated
+batcher.info('Starting batch process'); // Will be aggregated if 5+ similar messages in 1 min
+batcher.error('Rate limit exceeded'); // Will be aggregated if 10+ similar errors in 1 min
+batcher.info('Processed 100 items'); // Will be aggregated if 3+ similar messages in 30s
+
+// Instead of many separate messages, you'll get aggregated updates like:
+// "ℹ️ [AGGREGATED] 5 similar STARTUP messages in last 60s"
+// "🚨 [AGGREGATED] 15 similar RATE_LIMIT errors in last 60s"
+// "ℹ️ [AGGREGATED] 10 PROGRESS updates in last 30s"
 ```
+
+Messages are classified based on pattern matching (regex or custom function) and can be aggregated based on configurable thresholds. This helps reduce noise while still maintaining visibility into system behavior.
 
 ## Message Structure
 

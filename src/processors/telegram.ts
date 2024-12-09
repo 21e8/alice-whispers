@@ -1,63 +1,74 @@
 import type {
   Message,
   MessageProcessor,
-  NotificationLevel,
   TelegramConfig,
 } from '../types';
-
-const LEVEL_EMOJIS = new Map<NotificationLevel | string, string>([
-  ['error', '🚨'],
-  ['warning', '⚠️'],
-  ['info', 'ℹ️'],
-]);
-
-type TelegramApiError = {
-  ok: boolean;
-  error_code: number;
-  description: string;
-};
+import { EMOJI_MAP } from '../utils';
 
 export function createTelegramProcessor(
   config: TelegramConfig
 ): MessageProcessor {
-  const { botToken, chatId, development = false } = config;
-
   return {
     name: 'telegram',
     processBatch: async (messages: Message[]) => {
-      if (development) {
-        console.log('Development mode: skipping Telegram message');
+      if (messages.length === 0) {
+        console.log('[Telegram] No messages to send');
         return;
       }
 
-      const formattedMessages = messages.map(([_, text, level, error]) => {
-        const emoji = LEVEL_EMOJIS.get(level);
-        return `${emoji} ${text}${error ? `\n${error}` : ''}`;
-      });
+      if (config.development) {
+        console.log('[Telegram] Would send messages:', messages);
+        return;
+      }
 
-      const text = formattedMessages.join('\n\n');
+      const formattedMessages = messages
+        .map(([, text, level, error]) => {
+          const emoji = EMOJI_MAP[level];
+          const message = text.trim();
+          if (!message) return null;
+          return `${emoji} ${message}${error ? `\n${error}` : ''}`;
+        })
+        .filter(Boolean)
+        .join('\n\n');
 
-      const response = await fetch(
-        `https://api.telegram.org/bot${botToken}/sendMessage`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text,
-            parse_mode: 'HTML',
-          }),
-        }
-      );
+      if (!formattedMessages) {
+        console.log('[Telegram] No messages to send');
+        return;
+      }
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to send Telegram message: ${response.status} ${
-            response.statusText
-          }\n${await (response && response.text && response.text())}`
+      try {
+        const response = await fetch(
+          `https://api.telegram.org/bot${config.botToken}/sendMessage`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              chat_id: config.chatId,
+              text: formattedMessages,
+              parse_mode: 'HTML',
+            }),
+          }
         );
+
+        if (!response.ok) {
+          const error = await response.json();
+          console.log('[Telegram] API Response:', error);
+          throw new Error(
+            `Failed to send Telegram message: ${response.status} ${response.statusText}\nundefined`
+          );
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          console.log('[Telegram] API Response:', {
+            ok: false,
+            error_code: 400,
+            description: error.message,
+          });
+          throw error;
+        }
+        throw error;
       }
     },
   };

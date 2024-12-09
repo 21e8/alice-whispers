@@ -12,7 +12,7 @@ export { Queue };
 export {
   addErrorPatterns,
   classifyError,
-} from './utils/errorClassifier';
+} from './utils/classify';
 
 export { createMessageBatcher } from './batcher';
 export type {

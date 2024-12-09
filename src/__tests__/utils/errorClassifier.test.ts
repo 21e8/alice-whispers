@@ -1,28 +1,37 @@
 // import type { ErrorPatternConfig } from '../../types';
 import {
-  classifyError,
+  classifyMessage,
   formatClassifiedError,
   ClassifiedError,
-} from '../../utils/errorClassifier';
+} from '../../utils/classify';
 
-describe('Error Classifier', () => {
+describe('Message Classifier', () => {
   it('should classify database constraint violations', () => {
-    const error = new Error('duplicate key value');
-    const result = classifyError(error);
+    const result = classifyMessage('duplicate key value', 'error');
     expect(result[1]).toBe('DATABASE_CONSTRAINT_VIOLATION');
     expect(result[2]).toBe('medium');
   });
 
   it('should classify connection errors', () => {
-    const error = new Error('connection refused');
-    const result = classifyError(error);
+    const result = classifyMessage('connection refused', 'error');
     expect(result[1]).toBe('CONNECTION_ERROR');
     expect(result[2]).toBe('high');
   });
 
   it('should handle unknown errors', () => {
-    const error = new Error('some random error');
-    const result = classifyError(error);
+    const result = classifyMessage('some random error', 'error');
+    expect(result[1]).toBe('UNKNOWN');
+    expect(result[2]).toBe('low');
+  });
+
+  it('should classify info messages', () => {
+    const result = classifyMessage('Starting batch process', 'info');
+    expect(result[1]).toBe('UNKNOWN');
+    expect(result[2]).toBe('low');
+  });
+
+  it('should classify warning messages', () => {
+    const result = classifyMessage('Resource usage high', 'warning');
     expect(result[1]).toBe('UNKNOWN');
     expect(result[2]).toBe('low');
   });
@@ -45,7 +54,7 @@ describe('Error Classifier', () => {
 
     it('should format aggregated error without details', () => {
       const error: ClassifiedError = [
-        'Test error message',
+        'Message: Test error message',
         'TEST_CATEGORY',
         'high',
         undefined,
@@ -53,7 +62,7 @@ describe('Error Classifier', () => {
         5,
       ];
       const formatted = formatClassifiedError(error);
-      expect(formatted).toBe('[AGGREGATED] 5 similar errors in 10s');
+      expect(formatted).toBe('[AGGREGATED] 5 similar TEST_CATEGORY messages in last 10s');
     });
 
     it('should format aggregated error with details', () => {
@@ -67,7 +76,7 @@ describe('Error Classifier', () => {
       ];
       const formatted = formatClassifiedError(error);
       expect(formatted).toBe(
-        '[AGGREGATED] 3 similar errors in 5s\nDetails: {"errorType":"network","status":"500"}'
+        '[AGGREGATED] 3 similar TEST_CATEGORY messages in last 5s'
       );
     });
   });

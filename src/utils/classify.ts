@@ -1,13 +1,16 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { ErrorPattern, ErrorPatternConfig, SeverityLevel } from '../types';
+import Queue from './queue';
 
 // Store error patterns
-const errorPatterns: ErrorPattern[] = [
+const errorPatterns: Queue<ErrorPattern> = new Queue([
   // Database constraint violations
   [/duplicate key value/i, 'DATABASE_CONSTRAINT_VIOLATION', 'medium'],
   // Connection errors
   [/connection refused/i, 'CONNECTION_ERROR', 'high'],
-];
+]);
+
+// Track message occurrences for aggregation
 
 // Track message occurrences for aggregation
 type MessageGroup = {
@@ -21,10 +24,9 @@ type MessageGroup = {
 
 const messageGroups = new Map<string, MessageGroup>();
 
-
 export function addErrorPatterns(patterns: ErrorPatternConfig[]) {
   for (const pattern of patterns) {
-    const { name, pattern: matcher, category, severity, aggregation } = pattern;
+    const { pattern: matcher, category, severity, aggregation } = pattern;
     const entry: ErrorPattern = [
       matcher,
       category,
@@ -33,12 +35,12 @@ export function addErrorPatterns(patterns: ErrorPatternConfig[]) {
         ? [aggregation.windowMs, aggregation.countThreshold]
         : undefined,
     ];
-    errorPatterns.push(entry);
+    errorPatterns.enqueue(entry);
   }
 }
 
 export function clearErrorPatterns() {
-  errorPatterns.length = 0;
+  errorPatterns.clear();
 }
 
 export function clearErrorTracking() {
@@ -60,11 +62,10 @@ export type ClassifiedError = readonly [
   number // occurrences
 ];
 
-export function classifyError(
-  error: Error | string,
+export function classifyMessage(
+  message: string,
   level = 'error'
 ): ClassifiedError {
-  const message = error instanceof Error ? error.message : error;
   const now = Date.now();
 
   // Try each pattern
@@ -128,18 +129,10 @@ export function formatClassifiedError(error: ClassifiedError): string {
   
   if (isAggregated) {
     const timeStr = aggregation ? Math.round(aggregation[1] / 1000) + 's' : '10s';
-    const baseMsg = `[AGGREGATED] ${count} similar errors in ${timeStr}`;
-    if (aggregation) {
-      return `${baseMsg}\nDetails: {"errorType":"network","status":"500"}`;
-    }
-    return baseMsg;
+    return `[AGGREGATED] ${count} similar ${category} messages in last ${timeStr}`;
   }
   
-  const baseMsg = `Message: ${message}\nCategory: ${category}\nSeverity: ${severity}`;
-  if (aggregation) {
-    return `${baseMsg}\nDetails: {"key1":"value1","key2":"value2"}`;
-  }
-  return baseMsg;
+  return `Message: ${message}\nCategory: ${category}\nSeverity: ${severity}`;
 }
 
 export function getAggregatedErrors() {

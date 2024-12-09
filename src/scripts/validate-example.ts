@@ -1,6 +1,6 @@
 import { createMessageBatcher } from '../batcher.js';
 import { createTelegramProcessor } from '../processors/telegram.js';
-import { addErrorPatterns } from '../utils/errorClassifier.js';
+import { addErrorPatterns } from '../utils/classify.js';
 
 async function validateExample() {
   console.log('Starting example validation...');
