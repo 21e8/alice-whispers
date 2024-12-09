@@ -831,7 +831,9 @@ describe('Flush and Destroy Behavior', () => {
       maxWaitMs: 100,
     });
 
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
     batcher.addProcessor(failingProcessor);
     batcher.info('test message');
 
