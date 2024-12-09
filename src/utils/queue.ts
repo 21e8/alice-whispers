@@ -23,6 +23,10 @@ export default class Queue<T = any> {
     }
   }
 
+  isEmpty() {
+    return this.#size === 0;
+  }
+
   toArray(): T[] {
     return Array.from(this);
   }

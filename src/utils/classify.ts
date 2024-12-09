@@ -11,8 +11,6 @@ const errorPatterns: Queue<ErrorPattern> = new Queue([
 ]);
 
 // Track message occurrences for aggregation
-
-// Track message occurrences for aggregation
 type MessageGroup = {
   count: number;
   category: string;
@@ -44,13 +42,7 @@ export function clearErrorPatterns() {
 }
 
 export function clearErrorTracking() {
-  const now = Date.now();
-  for (const [key, group] of messageGroups.entries()) {
-    const age = now - group.firstSeen;
-    if (age > group.windowMs) {
-      messageGroups.delete(key);
-    }
-  }
+  messageGroups.clear();
 }
 
 export type ClassifiedError = readonly [
@@ -126,12 +118,14 @@ export function classifyMessage(
 
 export function formatClassifiedError(error: ClassifiedError): string {
   const [message, category, severity, aggregation, isAggregated, count] = error;
-  
+
   if (isAggregated) {
-    const timeStr = aggregation ? Math.round(aggregation[1] / 1000) + 's' : '10s';
+    const timeStr = aggregation
+      ? Math.round(aggregation[1] / 1000) + 's'
+      : '10s';
     return `[AGGREGATED] ${count} similar ${category} messages in last ${timeStr}`;
   }
-  
+
   return `Message: ${message}\nCategory: ${category}\nSeverity: ${severity}`;
 }
 
@@ -150,4 +144,10 @@ export function getAggregatedErrors() {
   }
 
   return result;
+}
+
+// For testing purposes
+export function _resetForTesting() {
+  clearErrorPatterns();
+  clearErrorTracking();
 }
