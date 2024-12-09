@@ -11,7 +11,9 @@ export class BatchAggregateError extends Error {
   }
 }
 
-export type NotificationLevel = 'info' | 'warning' | 'error';
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'none';
+
+export type NotificationLevel = 'info' | 'warning' | 'error' | 'none';
 
 export type SeverityLevel =
   | 'low'
@@ -41,11 +43,13 @@ export interface TelegramConfig {
   chatId: string;
   batchDelay?: number; // in ms, default 60000
   development?: boolean;
+  logLevel?: LogLevel; // defaults to 'trace'
 }
 
 // Simple processor interface that works with arrays
 export interface MessageProcessor {
   name: string;
+  logLevel?: LogLevel;
   processBatch(messages: Message[]): void | Promise<void>;
 }
 

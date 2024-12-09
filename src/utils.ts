@@ -2,6 +2,7 @@ export const EMOJI_MAP = {
   info: 'ℹ️',
   warning: '⚠️',
   error: '🚨',
+  none: '🔕',
 };
 
 export async function sendTelegramMessage(
