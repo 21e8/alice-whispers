@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { createMessageBatcher } from '../batcher';
 import { addErrorPatterns } from '../utils/classify';
@@ -529,16 +530,16 @@ describe('Message Classification', () => {
 });
 
 describe('Batcher Initialization and Singleton', () => {
-  let mockProcessor: MessageProcessor;
+  // let mockProcessor: MessageProcessor;
   let batcher1: MessageBatcher;
   let batcher2: MessageBatcher;
 
   beforeEach(() => {
     jest.useFakeTimers();
-    mockProcessor = {
-      name: 'mock',
-      processBatch: jest.fn(),
-    };
+    // mockProcessor = {
+    //   name: 'mock',
+    //   processBatch: jest.fn(),
+    // };
   });
 
   afterEach(async () => {
