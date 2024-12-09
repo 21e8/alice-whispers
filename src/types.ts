@@ -37,6 +37,7 @@ export type BatcherConfig = {
   singleton?: boolean;
   id?: string;
   processors?: MessageProcessor[];
+  errorPatterns?: ErrorPatternConfig[];
 };
 
 export interface TelegramConfig {
@@ -69,6 +70,7 @@ export interface MessageBatcher {
   addProcessor(processor: MessageProcessor): void;
   removeProcessor(name: string): void;
   removeAllProcessors(): void;
+  // errorPatterns: ErrorPatternConfig[];
 }
 
 // Error pattern types

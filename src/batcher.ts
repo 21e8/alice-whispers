@@ -7,9 +7,10 @@ import {
   BatchAggregateError,
 } from './types';
 import Queue from './utils/queue';
-import { classifyMessage } from './utils/classify';
+import { addErrorPatterns, classifyMessage } from './utils/classify';
 
 const globalBatchers = new Map<string, MessageBatcher>();
+const queueTimestamps = new Map<string, number>();
 
 export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
   const {
@@ -42,6 +43,10 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     }
   }
 
+  if (config.errorPatterns) {
+    addErrorPatterns(config.errorPatterns);
+  }
+
   function addProcessor(processor: MessageProcessor): void {
     if (processorNames.has(processor.name)) {
       console.error(`Processor ${processor.name} already exists`);
@@ -61,7 +66,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       const array = processors.toArray();
       array.splice(index, 1);
       processors.clear();
-      array.forEach(p => processors.enqueue(p));
+      array.forEach((p) => processors.enqueue(p));
       processorNames.delete(name);
     }
   }
@@ -77,6 +82,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     if (!queue) {
       queue = new Queue<Message>();
       queues.set(chatId, queue);
+      queueTimestamps.set(chatId, Date.now());
     }
 
     queue.enqueue([chatId, message, level]);
@@ -86,14 +92,22 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       return;
     }
 
+    const firstMessageTime = queueTimestamps.get(chatId) || Date.now();
+    const timeWaiting = Date.now() - firstMessageTime;
+    if (timeWaiting >= maxWaitMs) {
+      processBatch(chatId);
+      return;
+    }
+
     let timer = timers.get(chatId);
     if (timer) {
       clearTimeout(timer);
     }
 
+    const remainingWaitTime = Math.max(0, maxWaitMs - timeWaiting);
     timer = setTimeout(() => {
       processBatch(chatId);
-    }, maxWaitMs);
+    }, remainingWaitTime);
 
     timers.set(chatId, timer);
   }
@@ -119,6 +133,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     const messages = queue.toArray();
     queue.clear();
     queues.delete(chatId);
+    queueTimestamps.delete(chatId);
 
     const timer = timers.get(chatId);
     if (timer) {
@@ -268,6 +283,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
   async function destroy(): Promise<Queue<Error>> {
     const errors = await flush();
     removeAllProcessors();
+    queueTimestamps.clear();
     return errors;
   }
 
@@ -288,8 +304,8 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     flushSync,
     destroy,
     destroyAll,
-    queues,
-    timers,
+    queues, //todo: remove
+    timers, //todo: remove
     addProcessor,
     removeProcessor,
     removeAllProcessors,
