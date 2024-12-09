@@ -63,6 +63,7 @@ export interface MessageBatcher {
   flush(): Promise<Queue<Error>>;
   flushSync(): void;
   destroy(): Promise<Queue<Error>>;
+  destroyAll(): Promise<Queue<Error>>;
   queues: Map<string, Queue<Message>>;
   timers: Map<string, NodeJS.Timeout>;
   addProcessor(processor: MessageProcessor): void;

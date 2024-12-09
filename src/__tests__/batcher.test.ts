@@ -31,7 +31,7 @@ describe('MessageBatcher', () => {
 
   afterEach(async () => {
     if (batcher) {
-      await batcher.destroy();
+      await batcher.destroyAll();
     }
     jest.clearAllMocks();
     jest.clearAllTimers();
@@ -506,6 +506,15 @@ describe('Message Classification', () => {
       maxWaitMs: 100,
     });
 
+    addErrorPatterns([
+      {
+        name: 'test',
+        pattern: /test error/i,
+        category: 'TEST_ERROR',
+        severity: 'low',
+      },
+    ]);
+
     batcher.addProcessor(mockProcessor);
 
     // Queue mixed message types
@@ -710,7 +719,8 @@ describe('Concurrent Processing Edge Cases', () => {
 
     const errors = await batcher.flush();
     expect(errors.size).toBe(1);
-    expect(errors.dequeue()).toBe('string error');
+    const dequeued = errors.dequeue();
+    expect(dequeued?.message).toBe('string error');
   });
 
   it('should handle processor returning invalid value', async () => {

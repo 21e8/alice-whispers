@@ -1,53 +1,45 @@
 import {
-  BatcherConfig,
   Message,
   MessageBatcher,
-  MessageProcessor,
+  BatcherConfig,
   NotificationLevel,
+  MessageProcessor,
   BatchAggregateError,
 } from './types';
 import Queue from './utils/queue';
 import { classifyMessage } from './utils/classify';
-import { createConsoleProcessor } from './processors/console';
 
 const globalBatchers = new Map<string, MessageBatcher>();
 
 export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
-  const id = config.id ?? 'default';
-  const isSingleton = config.singleton ?? true;
+  const {
+    maxBatchSize = 100,
+    maxWaitMs = 1000,
+    concurrentProcessors = 1,
+    singleton = true,
+    id = 'default',
+  } = config;
+
   const existingBatcher = globalBatchers.get(id);
   if (globalBatchers.size > 0) {
     console.warn(
       'You are trying to create a new batcher while there is already one. This is currently not supported. Be at your own risk.'
     );
   }
-  if (isSingleton && existingBatcher) {
+
+  if (singleton && existingBatcher) {
     return existingBatcher;
   }
 
-  let processInterval: NodeJS.Timeout | null = null;
-  const queues: Map<string, Queue<Message>> = new Map();
-  const timers: Map<string, NodeJS.Timeout> = new Map();
-  const processors: MessageProcessor[] = [];
+  const queues = new Map<string, Queue<Message>>();
+  const timers = new Map<string, NodeJS.Timeout>();
+  const processors = new Queue<MessageProcessor>();
   const processorNames = new Set<string>();
-  const concurrentProcessors = config.concurrentProcessors ?? 3;
-  const maxBatchSize = config.maxBatchSize ?? 100;
-  const maxWaitMs = config.maxWaitMs ?? 60_000; // 1 minute
 
-  for (const processor of config.processors ?? []) {
-    addProcessor(processor);
-  }
-
-  function startProcessing(): void {
-    if (processInterval) {
-      clearInterval(processInterval);
+  if (config.processors) {
+    for (const processor of config.processors) {
+      addProcessor(processor);
     }
-    console.log('Starting processing interval');
-    processInterval = setInterval(async () => {
-      for (const chatId of queues.keys()) {
-        await processBatch(chatId);
-      }
-    }, maxWaitMs);
   }
 
   function addProcessor(processor: MessageProcessor): void {
@@ -55,7 +47,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       console.error(`Processor ${processor.name} already exists`);
       return;
     }
-    processors.push(processor);
+    processors.enqueue(processor);
     processorNames.add(processor.name);
   }
 
@@ -64,16 +56,46 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       console.error(`Processor ${name} not found`);
       return;
     }
-    const index = processors.findIndex((p) => p.name === name);
+    const index = processors.toArray().findIndex((p) => p.name === name);
     if (index !== -1) {
-      processors.splice(index, 1);
+      const array = processors.toArray();
+      array.splice(index, 1);
+      processors.clear();
+      array.forEach(p => processors.enqueue(p));
+      processorNames.delete(name);
     }
-    processorNames.delete(name);
   }
 
   function removeAllProcessors(): void {
-    processors.length = 0;
+    processors.clear();
     processorNames.clear();
+  }
+
+  function queueMessage(message: string, level: NotificationLevel): void {
+    const chatId = 'default';
+    let queue = queues.get(chatId);
+    if (!queue) {
+      queue = new Queue<Message>();
+      queues.set(chatId, queue);
+    }
+
+    queue.enqueue([chatId, message, level]);
+
+    if (queue.size >= maxBatchSize) {
+      processBatch(chatId);
+      return;
+    }
+
+    let timer = timers.get(chatId);
+    if (timer) {
+      clearTimeout(timer);
+    }
+
+    timer = setTimeout(() => {
+      processBatch(chatId);
+    }, maxWaitMs);
+
+    timers.set(chatId, timer);
   }
 
   function info(message: string): void {
@@ -84,52 +106,25 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     queueMessage(message, 'warning');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function error(message: string, error?: Error | any): void {
-    queueMessage(message, 'error', error);
+  function error(message: string, error?: Error | string): void {
+    const queue = queues.get('default') || new Queue<Message>();
+    queue.enqueue(['default', message, 'error', error]);
+    queues.set('default', queue);
   }
 
-  function queueMessage(
-    message: string,
-    level: NotificationLevel,
-    error?: Error | string
-  ): void {
-    let queue = queues.get('default');
+  async function processBatch(chatId: string): Promise<void> {
+    const queue = queues.get(chatId);
+    if (!queue || queue.size === 0) return;
 
-    if (!queue) {
-      queue = new Queue<Message>();
+    const messages = queue.toArray();
+    queue.clear();
+    queues.delete(chatId);
 
-      queues.set('default', queue);
-    }
-
-    queue.enqueue(['default', message, level, error]);
-
-    if (!timers.has('default')) {
-      const timer = setTimeout(() => {
-        processBatch('default');
-      }, maxWaitMs);
-      timers.set('default', timer);
-    }
-
-    if (queue.size >= maxBatchSize) {
-      processBatch('default');
-    }
-  }
-
-  async function processBatch(chatId: string): Promise<Queue<Error>> {
     const timer = timers.get(chatId);
     if (timer) {
       clearTimeout(timer);
       timers.delete(chatId);
     }
-
-    const queue = queues.get(chatId);
-    if (!queue || queue.size === 0) {
-      return new Queue<Error>();
-    }
-
-    const messages = queue.toArray();
-    queues.delete(chatId);
 
     // Group messages by type for classification
     const messageGroups = new Map<string, Message[]>();
@@ -181,108 +176,107 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     const errors = new Queue<Error>();
 
-    const processingPromises = processors.map(async (processor) => {
-      try {
-        await processor.processBatch(processedMessages.toArray());
-      } catch (error) {
-        errors.enqueue(error as Error);
-      }
-    });
-
-    await Promise.all(processingPromises);
-    return errors;
-  }
-
-  async function flush(): Promise<Queue<Error>> {
-    const errors = new Queue<Error>();
-    const chatIds = Array.from(queues.keys());
-
-    await Promise.all(
-      chatIds.map(async (chatId) => {
+    // Process in batches of concurrentProcessors
+    const processorArray = processors.toArray();
+    for (let i = 0; i < processorArray.length; i += concurrentProcessors) {
+      const batch = processorArray.slice(i, i + concurrentProcessors);
+      const promises = batch.map(async (processor) => {
         try {
-          const result = await processBatch(chatId);
-          for (const error of result) {
-            errors.enqueue(error);
-          }
+          await processor.processBatch(processedMessages.toArray());
         } catch (error) {
-          if (error instanceof BatchAggregateError) {
-            for (const e of error.errors) {
-              errors.enqueue(e);
-            }
+          if (error instanceof Error) {
+            errors.enqueue(error);
           } else {
-            errors.enqueue(
-              error instanceof Error ? error : new Error(String(error))
-            );
+            errors.enqueue(new Error(String(error)));
           }
         }
-      })
-    );
+      });
 
-    return errors;
+      await Promise.all(promises);
+    }
+
+    if (errors.size > 0) {
+      throw new BatchAggregateError(errors, 'Batch processing failed');
+    }
   }
 
   function flushSync(): void {
     const errors = new Queue<Error>();
-    const chatIds = Array.from(queues.keys());
 
-    for (const chatId of chatIds) {
-      const queue = queues.get(chatId);
-      if (!queue || queue.size === 0) continue;
+    for (const [chatId] of queues) {
+      try {
+        const queue = queues.get(chatId);
+        if (!queue || queue.size === 0) continue;
 
-      const timer = timers.get(chatId);
-      if (timer) {
-        clearTimeout(timer);
-        timers.delete(chatId);
-      }
+        const messages = queue.toArray();
+        queue.clear();
+        queues.delete(chatId);
 
-      const messages = queue.toArray();
-      queues.delete(chatId);
+        const timer = timers.get(chatId);
+        if (timer) {
+          clearTimeout(timer);
+          timers.delete(chatId);
+        }
 
-      for (const processor of processors) {
-        try {
-          processor.processBatch(messages);
-        } catch (error) {
-          errors.enqueue(
-            error instanceof Error ? error : new Error(String(error))
-          );
+        for (const processor of processors) {
+          try {
+            processor.processBatch(messages);
+          } catch (error) {
+            if (error instanceof Error) {
+              errors.enqueue(error);
+            } else {
+              errors.enqueue(new Error(String(error)));
+            }
+          }
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          errors.enqueue(error);
+        } else {
+          errors.enqueue(new Error(String(error)));
         }
       }
     }
 
     if (errors.size > 0) {
-      throw new BatchAggregateError(errors, 'Multiple processors failed');
+      throw new BatchAggregateError(errors, 'Batch processing failed');
     }
+  }
+
+  async function flush(): Promise<Queue<Error>> {
+    const errors = new Queue<Error>();
+
+    for (const [chatId] of queues) {
+      try {
+        await processBatch(chatId);
+      } catch (error) {
+        if (error instanceof BatchAggregateError) {
+          for (const e of error.errors) {
+            errors.enqueue(e);
+          }
+        } else if (error instanceof Error) {
+          errors.enqueue(error);
+        } else {
+          errors.enqueue(new Error(String(error)));
+        }
+      }
+    }
+
+    return errors;
   }
 
   async function destroy(): Promise<Queue<Error>> {
-    if (processInterval) {
-      clearInterval(processInterval);
-      processInterval = null;
-    }
-
-    for (const timer of timers.values()) {
-      clearTimeout(timer);
-    }
-    timers.clear();
-
-    const errors = new Queue<Error>();
-    try {
-      await flush();
-    } catch (error) {
-      errors.enqueue(error instanceof Error ? error : new Error(String(error)));
-    }
-
-    if (errors.size > 0) {
-      return errors;
-    }
-
+    const errors = await flush();
     removeAllProcessors();
-    queues.clear();
-    globalBatchers.delete(id);
-    return new Queue<Error>();
+    return errors;
   }
 
-  startProcessing();
+  async function destroyAll(): Promise<Queue<Error>> {
+    const errors = await flush();
+    removeAllProcessors();
+    globalBatchers.delete(id);
+    return errors;
+  }
 
   const batcher: MessageBatcher = {
     info,
@@ -293,6 +287,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     flush,
     flushSync,
     destroy,
+    destroyAll,
     queues,
     timers,
     addProcessor,
@@ -300,13 +295,11 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     removeAllProcessors,
   };
 
-  globalBatchers.set(id, batcher);
+  if (singleton) {
+    globalBatchers.set(id, batcher);
+  }
+
+  console.log('Starting processing interval');
+
   return batcher;
 }
-
-createMessageBatcher({
-  id: 'test',
-  processors: [createConsoleProcessor()],
-  maxBatchSize: 100,
-  maxWaitMs: 1000,
-});

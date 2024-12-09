@@ -28,7 +28,7 @@ async function testTimeout() {
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   console.log('Test complete. Cleaning up...');
-  await batcher.destroy();
+  await batcher.destroyAll();
 }
 
 // Run the test
