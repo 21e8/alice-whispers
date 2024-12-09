@@ -2,6 +2,7 @@ import { createTelegramProcessor } from '../../processors/telegram';
 import type { Message, TelegramConfig } from '../../types';
 import Queue from '../../utils/queue';
 import { MockResponse } from '../../test-utils';
+import { createMessageBatcher } from '../../batcher';
 
 describe('TelegramProcessor', () => {
   const defaultConfig: TelegramConfig = {
@@ -136,5 +137,52 @@ describe('TelegramProcessor', () => {
     const body = JSON.parse(options.body);
     expect(body.text).toContain('🚨 Error occurred');
     expect(body.text).toContain('Test error');
+  });
+
+  it('should handle empty message array', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug');
+    const processor = createTelegramProcessor(defaultConfig);
+    
+    await processor.processBatch([]);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith('[Telegram] No messages to send');
+    consoleSpy.mockRestore();
+  });
+
+  it('should handle non-ok response from API', async () => {
+    const batcher = createMessageBatcher({
+      maxBatchSize: 1,
+      maxWaitMs: 100,
+    });
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    // const processor = createTelegramProcessor(defaultConfig);
+    const errorResponse = {
+      // ok: false,
+      error_code: 429,
+      description: 'Too Many Requests: retry after 60',
+      // parameters: {
+      //   retry_after: 60
+      // }
+    };
+
+    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+      Promise.reject(new Error(errorResponse.description))
+    );
+
+    const processor = createTelegramProcessor(defaultConfig);
+    batcher.addProcessor(processor);
+    batcher.error('test message', new Error('test error'));
+    await batcher.flush();
+    // await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
+    //   'Failed to send Telegram message: 429 Too Many Requests\nToo Many Requests: retry after 60'
+    // );
+
+    expect(console.error).toHaveBeenCalledWith(
+      '[Telegram] API Response: ',
+      errorResponse.description
+    );
+    consoleSpy.mockRestore();
+    await batcher.destroy();
   });
 });

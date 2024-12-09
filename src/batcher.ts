@@ -94,8 +94,10 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     error?: Error | string
   ): void {
     let queue = queues.get('default');
+
     if (!queue) {
       queue = new Queue<Message>();
+
       queues.set('default', queue);
     }
 
@@ -137,7 +139,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       const [chatId, text, level, error] = msg;
       const classified = classifyMessage(text, level);
       const [, category, severity] = classified;
-      
+
       // Group key based on message pattern
       const baseText = text.replace(/\d+/g, 'X'); // Replace numbers with X
       const key = `${category}-${severity}-${level}-${baseText}`;
@@ -155,8 +157,8 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
         // Create aggregated message
         const [chatId, text, level] = group[0];
         const classified = classifyMessage(text, level);
-        const [, category, ] = classified;
-        
+        const [, category] = classified;
+
         // For test messages, preserve the original format
         if (text.includes('message ')) {
           processedMessages.push(...group);
@@ -175,6 +177,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     }
 
     const errors = new Queue<Error>();
+
     const processingPromises = processors.map(async (processor) => {
       try {
         await processor.processBatch(processedMessages);

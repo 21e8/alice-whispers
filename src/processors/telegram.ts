@@ -1,8 +1,4 @@
-import type {
-  Message,
-  MessageProcessor,
-  TelegramConfig,
-} from '../types';
+import type { Message, MessageProcessor, TelegramConfig } from '../types';
 import { EMOJI_MAP } from '../utils';
 import { shouldLog, normalizeLogLevel } from '../utils/logging';
 
@@ -13,6 +9,7 @@ export function createTelegramProcessor(
     name: 'telegram',
     logLevel: normalizeLogLevel(config.logLevel),
     processBatch: async (messages: Message[]) => {
+
       if (messages.length === 0) {
         console.debug('[Telegram] No messages to send');
         return;
@@ -55,25 +52,19 @@ export function createTelegramProcessor(
             }),
           }
         );
-
         if (!response.ok) {
-          const error = await response.json();
-          console.error('[Telegram] API Response:', error);
+          // const error = await response.json();
+          console.error('[Telegram] API Response:', response.statusText);
           throw new Error(
-            `Failed to send Telegram message: ${response.status} ${
-              response.statusText
-            }\n${(error as any).description}`
+            `Failed to send Telegram message: ${response.status} ${response.statusText}`
           );
         }
-      } catch (error) {
-        if (error instanceof Error) {
-          console.error('[Telegram] API Response:', {
-            ok: false,
-            error_code: 400,
-            description: error.message,
-          });
-          throw error;
-        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (error: any) {
+        console.error(
+          '[Telegram] API Response: ',
+          error.statusText || error.message || error.description || error
+        );
         throw error;
       }
     },
