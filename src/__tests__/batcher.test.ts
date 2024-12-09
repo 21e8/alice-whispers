@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { createMessageBatcher } from '../batcher';
+import { createMessageBatcher, globalBatchers } from '../batcher';
 import { addErrorPatterns } from '../utils/classify';
 import {
   MessageBatcher,
@@ -399,6 +399,7 @@ describe('MessageBatcher', () => {
     const errorArray = errors.toArray();
     expect(errorArray).toContainEqual(error1);
     expect(errorArray).toContainEqual(error2);
+    await batcher.destroy();
   });
 
   it('should handle errors during destroy', async () => {
@@ -411,20 +412,18 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [failingProcessor],
     });
 
-    // const consoleSpy = jest.spyOn(console, 'error');
-    batcher.addProcessor(failingProcessor);
     batcher.info('test message');
+    
+    // Wait a bit to ensure the message is queued
+    await new Promise(resolve => setTimeout(resolve, 10));
 
-    // Force immediate processing
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    const errors = await batcher.flush();
-    await batcher.destroy();
-
+    const errors = await batcher.destroy();
     expect(errors.size).toBe(1);
     expect(errors.dequeue()?.message).toBe('Process error');
-  }, 10000); // Increase timeout
+  });
 });
 
 describe('Message Classification', () => {
@@ -456,6 +455,13 @@ describe('Message Classification', () => {
     ]);
   });
 
+  afterEach(async () => {
+    if (batcher) {
+      await batcher.destroy();
+      globalBatchers.delete('default');
+    }
+  });
+
   it('should aggregate similar messages in a batch', async () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
@@ -477,13 +483,13 @@ describe('Message Classification', () => {
     expect(message?.[1]).toBe(
       '[AGGREGATED] 3 similar TEST_ERROR messages in last 2s'
     );
-    await batcher.destroy();
   });
 
   it('should not aggregate different message types', async () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      singleton: false,
     });
 
     batcher.addProcessor(mockProcessor);
@@ -493,11 +499,11 @@ describe('Message Classification', () => {
     batcher.info('test info');
     batcher.warning('test warning');
 
+    // Wait for messages to be processed
     await batcher.flush();
 
     // Should not be aggregated
     expect(processedMessages.size).toBe(3);
-    await batcher.destroy();
   });
 
   it('should handle mixed message types correctly', async () => {
@@ -537,7 +543,6 @@ describe('Message Classification', () => {
     expect(errorCount).toBe(1); // Aggregated errors
     expect(infoCount).toBe(1);
     expect(warningCount).toBe(1);
-    await batcher.destroy();
   });
 });
 
@@ -626,16 +631,25 @@ describe('Queue and Timer Behavior', () => {
   let mockProcessor: MessageProcessor;
   let batcher: MessageBatcher;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     mockProcessor = {
       name: 'mock',
       processBatch: jest.fn(),
     };
+    // Ensure any existing batchers are cleaned up
+    const existingBatcher = globalBatchers.get('default');
+    if (existingBatcher) {
+      await existingBatcher.destroy();
+      globalBatchers.delete('default');
+    }
   });
 
   afterEach(async () => {
-    if (batcher) await batcher.destroy();
+    if (batcher) {
+      await batcher.destroy();
+      globalBatchers.delete('default');
+    }
     jest.clearAllMocks();
     jest.clearAllTimers();
     jest.useRealTimers();
@@ -645,6 +659,7 @@ describe('Queue and Timer Behavior', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      singleton: false, // Ensure we get a fresh instance
     });
 
     expect(batcher.queues.size).toBe(0);
@@ -808,6 +823,7 @@ describe('Flush and Destroy Behavior', () => {
     await destroyPromise;
 
     expect(slowProcessor.processBatch).toHaveBeenCalled();
+    // await batcher.destroyAll();
   });
 
   it('should handle flush with no messages', async () => {
