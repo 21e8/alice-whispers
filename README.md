@@ -208,7 +208,7 @@ type Message = [
   string, // chatId
   string, // text
   NotificationLevel, // 'info' | 'warning' | 'error'
-  (Error | string)? // optional error
+  (Error | any)? // optional error
 ];
 ```
 

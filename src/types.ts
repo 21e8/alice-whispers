@@ -26,7 +26,8 @@ export type Message = [
   string, // chatId
   string, // text
   NotificationLevel, // level
-  (Error | string)? // optional error
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (Error | any)? // optional error
 ];
 
 export type BatcherConfig = {
