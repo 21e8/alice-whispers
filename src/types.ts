@@ -61,7 +61,7 @@ export interface MessageBatcher {
   processBatch(chatId: string): void;
   flush(): Promise<Queue<Error>>;
   flushSync(): void;
-  destroy(): Promise<void>;
+  destroy(): Promise<Queue<Error>>;
   queues: Map<string, Queue<Message>>;
   timers: Map<string, NodeJS.Timeout>;
   addProcessor(processor: MessageProcessor): void;

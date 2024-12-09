@@ -136,7 +136,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     // First pass: group similar messages
     for (const msg of messages) {
-      const [, text, level, ] = msg;
+      const [, text, level] = msg;
       const classified = classifyMessage(text, level);
       const [, category, severity] = classified;
 
@@ -251,7 +251,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     }
   }
 
-  async function destroy(): Promise<void> {
+  async function destroy(): Promise<Queue<Error>> {
     if (processInterval) {
       clearInterval(processInterval);
       processInterval = null;
@@ -266,31 +266,17 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     try {
       await flush();
     } catch (error) {
-      if (error instanceof BatchAggregateError) {
-        for (const e of error.errors) {
-          errors.enqueue(e);
-        }
-      } else {
-        errors.enqueue(
-          error instanceof Error ? error : new Error(String(error))
-        );
-      }
+      errors.enqueue(error instanceof Error ? error : new Error(String(error)));
     }
 
     if (errors.size > 0) {
-      const batchError = new BatchAggregateError(
-        errors,
-        'Error during destroy'
-      );
-      console.error(
-        'Error processing remaining messages during destroy:',
-        batchError
-      );
+      return errors;
     }
 
     removeAllProcessors();
     queues.clear();
     globalBatchers.delete(id);
+    return new Queue<Error>();
   }
 
   startProcessing();
