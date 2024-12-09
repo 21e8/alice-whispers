@@ -1,6 +1,7 @@
 import { createTelegramProcessor } from '../../processors/telegram';
 import type { Message, TelegramConfig } from '../../types';
 import Queue from '../../utils/queue';
+import { MockResponse } from '../../test-utils';
 
 describe('TelegramProcessor', () => {
   const defaultConfig: TelegramConfig = {
@@ -11,15 +12,10 @@ describe('TelegramProcessor', () => {
   beforeEach(() => {
     // Mock fetch
     (global.fetch as jest.Mock).mockImplementation(() =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        json: () => Promise.resolve({}),
-      } as Response)
+      Promise.resolve(new MockResponse())
     );
     // Silence console output except for specific tests
-    jest.spyOn(console, 'log').mockImplementation();
+    jest.spyOn(console, 'debug').mockImplementation();
     jest.spyOn(console, 'error').mockImplementation();
   });
 
@@ -51,6 +47,7 @@ describe('TelegramProcessor', () => {
   });
 
   it('should not send messages in development mode', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug');
     const processor = createTelegramProcessor({
       ...defaultConfig,
       development: true,
@@ -61,83 +58,46 @@ describe('TelegramProcessor', () => {
     await processor.processBatch(messages.toArray());
 
     expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it('should throw error on failed API response', async () => {
-    const consoleSpy = jest.spyOn(console, 'error');
-    // Updated mock implementation for failed response
-    (global.fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.resolve({
-        ok: false,
-        status: 400,
-        statusText: 'Bad Request',
-        json: () =>
-          Promise.resolve({
-            ok: false,
-            error_code: 400,
-            description: 'Bad Request: message text is empty',
-          }),
-      } as Response)
-    );
-
-    const processor = createTelegramProcessor(defaultConfig);
-    const messages = new Queue<Message>();
-    messages.enqueue(['default', 'test message', 'info', undefined]);
-
-    await expect(processor.processBatch(messages.toArray())).rejects.toThrow(`Failed to send Telegram message: 400 Bad Request
-undefined`
-    );
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[Telegram] API Response:',
-      expect.objectContaining({
-        ok: false,
-        error_code: 400,
-        description: expect.any(String),
-      })
-    );
-  });
-
-  it('should handle empty message batch', async () => {
-    const processor = createTelegramProcessor(defaultConfig);
-    const messages = new Queue<Message>();
-    await processor.processBatch(messages.toArray());
-    expect(global.fetch).not.toHaveBeenCalled();
-  });
-
-  it('should log messages to console in development mode', async () => {
-    // Restore console.log for this test
-    (console.log as jest.Mock).mockRestore();
-    const consoleSpy = jest.spyOn(console, 'log');
-
-    const processor = createTelegramProcessor({
-      ...defaultConfig,
-      development: true,
-    });
-    const messages = new Queue<Message>();
-    messages.enqueue(['default', 'test message', 'info', undefined]);
-
-    await processor.processBatch(messages.toArray());
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[Telegram] Would send messages:',
-      messages
-    );
+    expect(consoleSpy).toHaveBeenCalledWith('[Telegram] Would send messages:', [
+      ['default', 'test message', 'info', undefined],
+    ]);
     consoleSpy.mockRestore();
   });
 
-  it('should handle API errors with missing status text', async () => {
+  it('should throw error on failed API response', async () => {
+    const errorResponse = {
+      ok: false,
+      error_code: 400,
+      description: 'Bad Request: message text is empty',
+    };
+
     (global.fetch as jest.Mock).mockImplementationOnce(() =>
-      Promise.resolve({
-        ok: false,
-        status: 400,
-        json: () =>
-          Promise.resolve({
-            ok: false,
-            error_code: 400,
-            description: 'Unknown Error',
-          }),
-      } as Response)
+      Promise.resolve(new MockResponse(errorResponse))
+    );
+
+    const processor = createTelegramProcessor(defaultConfig);
+    const messages = new Queue<Message>();
+    messages.enqueue(['default', 'test message', 'info', undefined]);
+
+    await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
+      `Failed to send Telegram message: 400 Bad Request\nBad Request: message text is empty`
+    );
+
+    expect(console.error).toHaveBeenCalledWith(
+      '[Telegram] API Response:',
+      errorResponse
+    );
+  });
+
+  it('should handle API errors with missing status text', async () => {
+    const errorResponse = {
+      ok: false,
+      error_code: 400,
+      description: 'Unknown Error',
+    };
+
+    (global.fetch as jest.Mock).mockImplementationOnce(() =>
+      Promise.resolve(new MockResponse(errorResponse))
     );
 
     const processor = createTelegramProcessor(defaultConfig);
@@ -145,18 +105,17 @@ undefined`
     messages.enqueue(['default', 'test', 'info', undefined]);
 
     await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
-      `Failed to send Telegram message: 400 undefined
-undefined`
+      `Failed to send Telegram message: 400 undefined\nUnknown Error`
     );
   });
 
   it('should handle empty formatted messages', async () => {
+    const consoleSpy = jest.spyOn(console, 'debug');
     const processor = createTelegramProcessor(defaultConfig);
     const messages = new Queue<Message>();
     messages.enqueue(['default', '   ', 'info', undefined]); // whitespace only
     messages.enqueue(['default', '', 'info', undefined]); // empty string
 
-    const consoleSpy = jest.spyOn(console, 'log');
     await processor.processBatch(messages.toArray());
 
     expect(global.fetch).not.toHaveBeenCalled();
