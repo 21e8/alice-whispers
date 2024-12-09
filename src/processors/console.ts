@@ -17,5 +17,5 @@ export function createConsoleProcessor(): MessageProcessor {
     }
   }
 
-  return { type: 'external', processBatch, name: 'console' };
+  return { processBatch, name: 'console' };
 }
