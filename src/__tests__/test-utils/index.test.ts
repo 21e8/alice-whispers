@@ -15,6 +15,7 @@ export class MockResponse implements Response {
   readonly body: ReadableStream | null;
   readonly bodyUsed: boolean;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(private data: any = {}) {
     this.headers = new Headers();
     this.ok = data.ok ?? true;
