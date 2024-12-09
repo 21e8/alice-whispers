@@ -1,6 +1,109 @@
 import type { Message, MessageProcessor, TelegramConfig } from '../types';
 import { EMOJI_MAP } from '../utils';
 import { shouldLog, normalizeLogLevel } from '../utils/logging';
+import Queue from '../utils/queue';
+
+const handleQueue = async (
+  messages: Queue<Message>,
+  config: TelegramConfig
+) => {
+  if (messages.size === 0) {
+    console.debug('[Telegram] No messages to send');
+    return;
+  }
+
+  if (config.development) {
+    console.debug('[Telegram] Would send messages:', messages);
+    return;
+  }
+  const formattedMessages: string[] = [];
+  for (const msg of messages) {
+    const [, text, level, error] = msg;
+    if (!shouldLog(level, config.logLevel)) continue;
+
+    const emoji = EMOJI_MAP[level];
+    const message = text.trim();
+    if (!message) continue;
+    formattedMessages.push(`${emoji} ${message}${error ? `\n${error}` : ''}`);
+  }
+  const filteredMessages = formattedMessages.filter(Boolean);
+  if (filteredMessages.length === 0) {
+    console.debug('[Telegram] No messages to send');
+    return;
+  }
+
+  const filteredMessagesString = filteredMessages.join('\n\n');
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${config.botToken}/sendMessage`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: config.chatId,
+          text: filteredMessagesString,
+          parse_mode: 'HTML',
+        }),
+      }
+    );
+    console.debug('[Telegram] API Response:', response);
+  } catch (error) {
+    console.error('[Telegram] API Response:', error);
+  }
+};
+
+const handleMessages = async (messages: Message[], config: TelegramConfig) => {
+  const formattedMessages = messages
+    .map(([, text, level, error]) => {
+      if (!shouldLog(level, config.logLevel)) return null;
+
+      const emoji = EMOJI_MAP[level];
+      const message = text.trim();
+      if (!message) return null;
+      return `${emoji} ${message}${error ? `\n${error}` : ''}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  if (!formattedMessages) {
+    console.debug('[Telegram] No messages to send');
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${config.botToken}/sendMessage`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chat_id: config.chatId,
+          text: formattedMessages,
+          parse_mode: 'HTML',
+        }),
+      }
+    );
+    if (!response.ok) {
+      // const error = await response.json();
+      console.error('[Telegram] API Response:', response.statusText);
+      throw new Error(
+        `Failed to send Telegram message: ${response.status} ${response.statusText}`
+      );
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
+    console.error(
+      '[Telegram] API Response: ',
+      error.statusText || error.message || error.description || error
+    );
+    throw error;
+  }
+};
 
 export function createTelegramProcessor(
   config: TelegramConfig
@@ -8,7 +111,12 @@ export function createTelegramProcessor(
   return {
     name: 'telegram',
     logLevel: normalizeLogLevel(config.logLevel),
-    processBatch: async (messages: Message[]) => {
+    processBatch: async (messages: Message[] | Queue<Message>) => {
+      if (messages instanceof Queue) {
+        await handleQueue(messages, config);
+        return;
+      }
+
       if (messages.length === 0) {
         console.debug('[Telegram] No messages to send');
         return;
@@ -19,54 +127,7 @@ export function createTelegramProcessor(
         return;
       }
 
-      const formattedMessages = messages
-        .map(([, text, level, error]) => {
-          if (!shouldLog(level, config.logLevel)) return null;
-
-          const emoji = EMOJI_MAP[level];
-          const message = text.trim();
-          if (!message) return null;
-          return `${emoji} ${message}${error ? `\n${error}` : ''}`;
-        })
-        .filter(Boolean)
-        .join('\n\n');
-
-      if (!formattedMessages) {
-        console.debug('[Telegram] No messages to send');
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `https://api.telegram.org/bot${config.botToken}/sendMessage`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              chat_id: config.chatId,
-              text: formattedMessages,
-              parse_mode: 'HTML',
-            }),
-          }
-        );
-        if (!response.ok) {
-          // const error = await response.json();
-          console.error('[Telegram] API Response:', response.statusText);
-          throw new Error(
-            `Failed to send Telegram message: ${response.status} ${response.statusText}`
-          );
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (error: any) {
-
-        console.error(
-          '[Telegram] API Response: ',
-          error.statusText || error.message || error.description || error
-        );
-        throw error;
-      }
+      await handleMessages(messages, config);
     },
   };
 }
