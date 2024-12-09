@@ -184,10 +184,11 @@ Create your own message processors:
 import { createCustomProcessor, type Message } from 'alice-whispers';
 
 const consoleProcessor = createCustomProcessor({
-  name: 'console',
+  name: 'my-processor',
   processBatch: async (messages: Message[]) => {
     for (const msg of messages) {
-      console.log(`[${msg[2].toUpperCase()}] ${msg[1]}`);
+      const [, text, level] = msg;
+      console.log(`[${level.toUpperCase()}] ${text}`);
     }
   },
 });
