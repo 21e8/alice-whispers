@@ -3,6 +3,27 @@ import { EMOJI_MAP } from '../utils';
 import { shouldLog, normalizeLogLevel } from '../utils/logging';
 import Queue from '../utils/queue';
 
+const sendTelegramMessage = async (
+  messages: string,
+  config: TelegramConfig
+) => {
+  const response = await fetch(
+    `https://api.telegram.org/bot${config.botToken}/sendMessage`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: config.chatId,
+        text: messages,
+        parse_mode: 'HTML',
+      }),
+    }
+  );
+  return response;
+};
+
 const handleQueue = async (
   messages: Queue<Message>,
   config: TelegramConfig
@@ -35,20 +56,7 @@ const handleQueue = async (
   const filteredMessagesString = filteredMessages.join('\n\n');
 
   try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${config.botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: config.chatId,
-          text: filteredMessagesString,
-          parse_mode: 'HTML',
-        }),
-      }
-    );
+    const response = await sendTelegramMessage(filteredMessagesString, config);
     console.debug('[Telegram] API Response:', response);
   } catch (error) {
     console.error('[Telegram] API Response:', error);
@@ -74,22 +82,8 @@ const handleMessages = async (messages: Message[], config: TelegramConfig) => {
   }
 
   try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${config.botToken}/sendMessage`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: config.chatId,
-          text: formattedMessages,
-          parse_mode: 'HTML',
-        }),
-      }
-    );
+    const response = await sendTelegramMessage(formattedMessages, config);
     if (!response.ok) {
-      // const error = await response.json();
       console.error('[Telegram] API Response:', response.statusText);
       throw new Error(
         `Failed to send Telegram message: ${response.status} ${response.statusText}`
