@@ -41,6 +41,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     if (processInterval) {
       clearInterval(processInterval);
     }
+    console.log('Starting processing interval');
     processInterval = setInterval(async () => {
       for (const chatId of queues.keys()) {
         await processBatch(chatId);

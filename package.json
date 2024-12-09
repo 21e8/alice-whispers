@@ -23,6 +23,7 @@
     "build": "yarn clean && rollup -c",
     "check-types": "tsc --noEmit",
     "test": "jest && yarn test-timeout",
+    "test:dev": "jest --watch --detectOpenHandles",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write 'src/**/*.ts'",
     "prepublishOnly": "yarn build",

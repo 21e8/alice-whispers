@@ -473,6 +473,7 @@ describe('Message Classification', () => {
     expect(processedMessages.size).toBe(1);
     const message = processedMessages.dequeue();
     expect(message?.[1]).toBe('[AGGREGATED] 3 similar TEST_ERROR messages in last 2s');
+    await batcher.destroy();
   });
 
   it('should not aggregate different message types', async () => {
@@ -492,6 +493,7 @@ describe('Message Classification', () => {
 
     // Should not be aggregated
     expect(processedMessages.size).toBe(3);
+    await batcher.destroy();
   });
 
   it('should handle mixed message types correctly', async () => {
@@ -522,5 +524,6 @@ describe('Message Classification', () => {
     expect(errorCount).toBe(1); // Aggregated errors
     expect(infoCount).toBe(1);
     expect(warningCount).toBe(1);
+    await batcher.destroy();
   });
 });
