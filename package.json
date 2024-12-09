@@ -1,6 +1,6 @@
 {
   "name": "alice-whispers",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "description": "Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification",
   "type": "module",
   "main": "./dist/cjs/index.js",

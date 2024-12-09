@@ -82,7 +82,8 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     queueMessage(message, 'warning');
   }
 
-  function error(message: string, error?: Error | string): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function error(message: string, error?: Error | any): void {
     queueMessage(message, 'error', error);
   }
 

@@ -54,14 +54,14 @@ export function createTelegramProcessor(
 
         if (!response.ok) {
           const error = await response.json();
-          console.log('[Telegram] API Response:', error);
+          console.error('[Telegram] API Response:', error);
           throw new Error(
-            `Failed to send Telegram message: ${response.status} ${response.statusText}\nundefined`
+            `Failed to send Telegram message: ${response.status} ${response.statusText}\n${(error as any).description}`
           );
         }
       } catch (error) {
         if (error instanceof Error) {
-          console.log('[Telegram] API Response:', {
+          console.error('[Telegram] API Response:', {
             ok: false,
             error_code: 400,
             description: error.message,
