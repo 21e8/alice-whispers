@@ -19,5 +19,5 @@ export default {
   testMatch: ['**/__tests__/**/*.test.ts'],
   clearMocks: true,
   collectCoverage: true,
-  coverageDirectory: 'coverage'
+  coverageDirectory: 'coverage',
 }; 

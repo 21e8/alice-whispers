@@ -1,7 +1,7 @@
 import { createTelegramProcessor } from '../../processors/telegram';
 import type { Message, TelegramConfig } from '../../types';
 import Queue from '../../utils/queue';
-import { MockResponse } from '../../test-utils';
+import { MockResponse } from '../test-utils';
 import { createMessageBatcher } from '../../batcher';
 
 describe('TelegramProcessor', () => {
@@ -68,8 +68,8 @@ describe('TelegramProcessor', () => {
   it('should throw error on failed API response', async () => {
     const errorResponse = {
       ok: false,
-      error_code: 400,
-      description: 'Bad Request: message text is empty',
+      status: 400,
+      statusText: 'Bad Request: message text is empty',
     };
 
     (global.fetch as jest.Mock).mockImplementationOnce(() =>
@@ -81,12 +81,12 @@ describe('TelegramProcessor', () => {
     messages.enqueue(['default', 'test message', 'info', undefined]);
 
     await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
-      `Failed to send Telegram message: 400 Bad Request\nBad Request: message text is empty`
+      `Failed to send Telegram message: 400 Bad Request: message text is empty`
     );
 
     expect(console.error).toHaveBeenCalledWith(
       '[Telegram] API Response:',
-      errorResponse
+      `Bad Request: message text is empty`
     );
   });
 
@@ -94,7 +94,7 @@ describe('TelegramProcessor', () => {
     const errorResponse = {
       ok: false,
       error_code: 400,
-      description: 'Unknown Error',
+      statusText: 'Unknown Error',
     };
 
     (global.fetch as jest.Mock).mockImplementationOnce(() =>
@@ -104,9 +104,8 @@ describe('TelegramProcessor', () => {
     const processor = createTelegramProcessor(defaultConfig);
     const messages = new Queue<Message>();
     messages.enqueue(['default', 'test', 'info', undefined]);
-
     await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
-      `Failed to send Telegram message: 400 undefined\nUnknown Error`
+      `Failed to send Telegram message: 400 Unknown Error`
     );
   });
 
@@ -142,7 +141,7 @@ describe('TelegramProcessor', () => {
   it('should handle empty message array', async () => {
     const consoleSpy = jest.spyOn(console, 'debug');
     const processor = createTelegramProcessor(defaultConfig);
-    
+
     await processor.processBatch([]);
 
     expect(global.fetch).not.toHaveBeenCalled();

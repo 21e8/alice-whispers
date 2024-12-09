@@ -9,7 +9,6 @@ export function createTelegramProcessor(
     name: 'telegram',
     logLevel: normalizeLogLevel(config.logLevel),
     processBatch: async (messages: Message[]) => {
-
       if (messages.length === 0) {
         console.debug('[Telegram] No messages to send');
         return;
@@ -61,6 +60,7 @@ export function createTelegramProcessor(
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
+
         console.error(
           '[Telegram] API Response: ',
           error.statusText || error.message || error.description || error

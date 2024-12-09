@@ -253,7 +253,9 @@ describe('MessageBatcher', () => {
 
     const errors = await batcher.flush();
     expect(errors.size).toBe(1);
-    expect(errors.dequeue()?.message).toBe('processor.processBatch is not a function');
+    expect(errors.dequeue()?.message).toBe(
+      'processor.processBatch is not a function'
+    );
   });
 
   it('should handle multiple concurrent processors with different speeds', async () => {
@@ -436,7 +438,7 @@ describe('Message Classification', () => {
     mockProcessor = {
       name: 'mock',
       processBatch: jest.fn((messages) => {
-        messages.forEach(msg => processedMessages.enqueue(msg));
+        messages.forEach((msg) => processedMessages.enqueue(msg));
       }),
     };
 
@@ -467,13 +469,15 @@ describe('Message Classification', () => {
     batcher.error('test error 1');
     batcher.error('test error 2');
     batcher.error('test error 3');
-    
+
     await batcher.flush();
 
     // Should be aggregated into one message
     expect(processedMessages.size).toBe(1);
     const message = processedMessages.dequeue();
-    expect(message?.[1]).toBe('[AGGREGATED] 3 similar TEST_ERROR messages in last 2s');
+    expect(message?.[1]).toBe(
+      '[AGGREGATED] 3 similar TEST_ERROR messages in last 2s'
+    );
     await batcher.destroy();
   });
 
@@ -489,7 +493,7 @@ describe('Message Classification', () => {
     batcher.error('test error');
     batcher.info('test info');
     batcher.warning('test warning');
-    
+
     await batcher.flush();
 
     // Should not be aggregated
@@ -511,17 +515,17 @@ describe('Message Classification', () => {
     batcher.error('test error 2');
     batcher.warning('random warning');
     batcher.error('test error 3');
-    
+
     await batcher.flush();
 
     // Should have 3 messages: 1 aggregated error + 1 info + 1 warning
     expect(processedMessages.size).toBe(3);
-    
+
     const messages = processedMessages.toArray();
-    const errorCount = messages.filter(m => m[2] === 'error').length;
-    const infoCount = messages.filter(m => m[2] === 'info').length;
-    const warningCount = messages.filter(m => m[2] === 'warning').length;
-    
+    const errorCount = messages.filter((m) => m[2] === 'error').length;
+    const infoCount = messages.filter((m) => m[2] === 'info').length;
+    const warningCount = messages.filter((m) => m[2] === 'warning').length;
+
     expect(errorCount).toBe(1); // Aggregated errors
     expect(infoCount).toBe(1);
     expect(warningCount).toBe(1);
@@ -778,7 +782,7 @@ describe('Flush and Destroy Behavior', () => {
     const slowProcessor = {
       name: 'slow',
       processBatch: jest.fn(async () => {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }),
     };
 

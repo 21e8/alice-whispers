@@ -17,13 +17,13 @@ export class MockResponse implements Response {
 
   constructor(private data: any = {}) {
     this.headers = new Headers();
-    this.ok = true;
+    this.ok = data.ok ?? true;
     this.redirected = false;
-    this.status = 200;
-    this.statusText = 'OK';
+    this.status = (data.error_code || data.status) ?? 200;
+    this.statusText = data.statusText ?? 'OK';
     this.type = 'basic';
-    this.url = '';
-    this.body = null;
+    this.url = data.url ?? '';
+    this.body = data.body ?? null;
     this.bodyUsed = false;
   }
 
