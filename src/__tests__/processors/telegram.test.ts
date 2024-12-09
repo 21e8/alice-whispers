@@ -34,7 +34,7 @@ describe('TelegramProcessor', () => {
     messages.enqueue(['default', 'warning message', 'warning', undefined]);
     messages.enqueue(['default', 'error message', 'error', undefined]);
 
-    await processor.processBatch(messages);
+    await processor.processBatch(messages.toArray());
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
@@ -58,7 +58,7 @@ describe('TelegramProcessor', () => {
     const messages = new Queue<Message>();
     messages.enqueue(['default', 'test message', 'info', undefined]);
 
-    await processor.processBatch(messages);
+    await processor.processBatch(messages.toArray());
 
     expect(global.fetch).not.toHaveBeenCalled();
   });
@@ -84,7 +84,7 @@ describe('TelegramProcessor', () => {
     const messages = new Queue<Message>();
     messages.enqueue(['default', 'test message', 'info', undefined]);
 
-    await expect(processor.processBatch(messages)).rejects.toThrow(
+    await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
       'Telegram API error: Bad Request - Bad Request: message text is empty'
     );
 
@@ -101,7 +101,7 @@ describe('TelegramProcessor', () => {
   it('should handle empty message batch', async () => {
     const processor = createTelegramProcessor(defaultConfig);
     const messages = new Queue<Message>();
-    await processor.processBatch(messages);
+    await processor.processBatch(messages.toArray());
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -117,7 +117,7 @@ describe('TelegramProcessor', () => {
     const messages = new Queue<Message>();
     messages.enqueue(['default', 'test message', 'info', undefined]);
 
-    await processor.processBatch(messages);
+    await processor.processBatch(messages.toArray());
 
     expect(consoleSpy).toHaveBeenCalledWith(
       '[Telegram] Would send messages:',
@@ -144,7 +144,7 @@ describe('TelegramProcessor', () => {
     const messages = new Queue<Message>();
     messages.enqueue(['default', 'test', 'info', undefined]);
 
-    await expect(processor.processBatch(messages)).rejects.toThrow(
+    await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
       'Telegram API error: Unknown Error - Unknown Error'
     );
   });
@@ -156,7 +156,7 @@ describe('TelegramProcessor', () => {
     messages.enqueue(['default', '', 'info', undefined]); // empty string
 
     const consoleSpy = jest.spyOn(console, 'log');
-    await processor.processBatch(messages);
+    await processor.processBatch(messages.toArray());
 
     expect(global.fetch).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith('[Telegram] No messages to send');
@@ -169,7 +169,7 @@ describe('TelegramProcessor', () => {
     const messages = new Queue<Message>();
     messages.enqueue(['default', 'Error occurred', 'error', error]);
 
-    await processor.processBatch(messages);
+    await processor.processBatch(messages.toArray());
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [, options] = (global.fetch as jest.Mock).mock.calls[0];

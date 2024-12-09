@@ -1,26 +1,13 @@
-import {
-  type Message,
-  type BatcherConfig,
-  type NotificationLevel,
-  type MessageProcessor,
-  type MessageBatcher,
-  type InternalMessageProcessor,
-  type ExternalMessageProcessor,
+import type {
+  BatcherConfig,
+  Message,
+  MessageBatcher,
+  MessageProcessor,
+  NotificationLevel,
 } from './types';
 import Queue from './utils/queue';
 
-// Custom AggregateError implementation
-export class BatchAggregateError extends Error {
-  readonly errors: Queue<Error>;
-
-  constructor(errors: Queue<Error>, message: string) {
-    super(message);
-    this.name = 'BatchAggregateError';
-    this.errors = errors;
-  }
-}
-
-export const globalBatchers = new Map<string, MessageBatcher>();
+const globalBatchers = new Map<string, MessageBatcher>();
 
 export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
   const id = config.id ?? 'default';
@@ -34,14 +21,19 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
   if (isSingleton && existingBatcher) {
     return existingBatcher;
   }
+
   let processInterval: NodeJS.Timeout | null = null;
   const queues: Map<string, Queue<Message>> = new Map();
   const timers: Map<string, NodeJS.Timeout> = new Map();
-  let extraProcessors: MessageProcessor[] = [];
+  const processors: MessageProcessor[] = [];
   const processorNames = new Set<string>();
   const concurrentProcessors = config.concurrentProcessors ?? 3;
   const maxBatchSize = config.maxBatchSize ?? 100;
   const maxWaitMs = config.maxWaitMs ?? 60_000; // 1 minute
+
+  for (const processor of config.processors ?? []) {
+    addProcessor(processor);
+  }
 
   function startProcessing(): void {
     if (processInterval) {
@@ -54,25 +46,12 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     }, maxWaitMs);
   }
 
-  function addProcessor(
-    processor: ExternalMessageProcessor | InternalMessageProcessor
-  ): void {
+  function addProcessor(processor: MessageProcessor): void {
     if (processorNames.has(processor.name)) {
       console.error(`Processor ${processor.name} already exists`);
       return;
     }
-    if (processor.type === 'external') {
-      extraProcessors.push({
-        type: 'external',
-        name: processor.name,
-        processBatch: (queue) => processor.processBatch(queue.toArray()),
-        processBatchSync: processor.processBatchSync
-          ? (queue) => processor.processBatchSync?.(queue.toArray())
-          : undefined,
-      });
-    } else {
-      extraProcessors.push(processor);
-    }
+    processors.push(processor);
     processorNames.add(processor.name);
   }
 
@@ -81,12 +60,15 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       console.error(`Processor ${name} not found`);
       return;
     }
-    extraProcessors = extraProcessors.filter((p) => p.name !== name);
+    const index = processors.findIndex(p => p.name === name);
+    if (index !== -1) {
+      processors.splice(index, 1);
+    }
     processorNames.delete(name);
   }
 
   function removeAllProcessors(): void {
-    extraProcessors = [];
+    processors.length = 0;
     processorNames.clear();
   }
 
@@ -108,235 +90,81 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     error?: Error | string
   ): void {
     const chatId = 'default';
-
-    // Ensure atomic queue creation
-    if (!queues.has(chatId)) {
-      queues.set(chatId, new Queue<Message>());
+    let queue = queues.get(chatId);
+    if (!queue) {
+      queue = new Queue<Message>();
+      queues.set(chatId, queue);
     }
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const queue = queues.get(chatId)!;
+
     queue.enqueue([chatId, message, level, error]);
 
-    // Clear any existing timer since we're either:
-    // - Setting a new timer for the updated queue size
-    // - Processing immediately due to max size
-    const existingTimer = timers.get(chatId);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-      timers.delete(chatId);
-    }
-
     if (queue.size >= maxBatchSize) {
-      // Process immediately if maxBatchSize is reached
-      processBatch(chatId).catch((error) => {
-        console.error('Error processing batch:', error);
-      });
-    } else {
-      // Set new timer for delayed processing
-      const timer = setTimeout(() => {
-        processBatch(chatId).catch((error) => {
-          console.error('Error processing batch:', error);
-        });
+      const timer = timers.get(chatId);
+      if (timer) {
+        clearTimeout(timer);
         timers.delete(chatId);
-      }, maxWaitMs);
-      timers.set(chatId, timer);
-    }
-  }
-
-  // Helper function for concurrent processing
-  async function concurrentExhaust<T>(
-    items: T[],
-    concurrency: number,
-    processor: (item: T) => Promise<void>
-  ): Promise<Queue<Error>> {
-    const chunks = [];
-    for (let i = 0; i < items.length; i += concurrency) {
-      chunks.push(items.slice(i, i + concurrency));
-    }
-
-    const errors: Queue<Error> = new Queue();
-
-    for (const chunk of chunks) {
-      // Process each item in the chunk and collect results
-      const results = await Promise.allSettled(
-        chunk.map((item) => processor(item))
-      );
-
-      // Check for any rejections
-      const chunkErrors = results
-        .filter(
-          (result): result is PromiseRejectedResult =>
-            result.status === 'rejected'
-        )
-        .map((result) =>
-          result.reason instanceof Error
-            ? result.reason
-            : new Error(String(result.reason))
+      }
+      processBatch(chatId);
+    } else {
+      const timer = timers.get(chatId);
+      if (!timer) {
+        timers.set(
+          chatId,
+          setTimeout(() => processBatch(chatId), maxWaitMs)
         );
-
-      for (const error of chunkErrors) {
-        errors.enqueue(error);
       }
     }
-
-    return errors;
   }
-
-  const exhaustBatcher = async (
-    processor: MessageProcessor | InternalMessageProcessor,
-    queue: Queue<Message>
-  ): Promise<void> => {
-    if (typeof processor.processBatch !== 'function') {
-      const error = new Error('processBatch is not a function');
-      console.error(`Processor ${processor.name} failed:`, error);
-      throw error;
-    }
-
-    try {
-      await processor.processBatch(queue);
-    } catch (error) {
-      const wrappedError =
-        error instanceof Error ? error : new Error(String(error));
-      console.error(`Processor ${processor.name} failed:`, wrappedError);
-      throw wrappedError;
-    }
-  };
 
   async function processBatch(chatId: string): Promise<void> {
     const queue = queues.get(chatId);
-    if (!queue?.size) return;
+    if (!queue || queue.size === 0) return;
 
-    // Clear any pending timer for this batch
     const timer = timers.get(chatId);
     if (timer) {
       clearTimeout(timer);
       timers.delete(chatId);
     }
 
-    // Create a copy of the queue for processing
-    const processingQueue = new Queue<Message>();
-    while (queue.size > 0) {
-      const item = queue.dequeue();
-      if (item) {
-        processingQueue.enqueue(item);
-      }
+    const messages = queue.toArray();
+    queues.delete(chatId);
+
+    // Process in parallel with concurrency limit
+    const chunks = [];
+    for (let i = 0; i < messages.length; i += concurrentProcessors) {
+      chunks.push(messages.slice(i, i + concurrentProcessors));
     }
 
-    const allProcessors = [...extraProcessors];
-    const errors = await concurrentExhaust(
-      allProcessors,
-      concurrentProcessors,
-      (processor) => exhaustBatcher(processor, processingQueue)
-    );
-
-    if (errors.size > 0) {
-      throw new BatchAggregateError(
-        errors,
-        'Some processors failed to process batch'
+    for (const chunk of chunks) {
+      await Promise.all(
+        processors.map(processor => processor.processBatch(chunk))
       );
-    }
-  }
-
-  function processBatchSync(chatId: string): void {
-    const queue = queues.get(chatId);
-    if (!queue?.size) return;
-
-    // Create a copy of the queue for processing
-    const processingQueue = new Queue<Message>();
-    while (queue.size > 0) {
-      const item = queue.dequeue();
-      if (item) {
-        processingQueue.enqueue(item);
-      }
-    }
-
-    const errors = new Queue<Error>();
-
-    for (const processor of extraProcessors) {
-      try {
-        if (processor.processBatchSync) {
-          processor.processBatchSync(processingQueue);
-        } else if (processor.processBatch) {
-          // For async processBatch, we'll catch and log errors
-          // We need to handle this differently since we can't await in sync context
-          const result = processor.processBatch(processingQueue);
-          if (result instanceof Promise) {
-            result.catch((error: unknown) => {
-              const wrappedError =
-                error instanceof Error ? error : new Error(String(error));
-              console.error(
-                `Processor ${processor.name} failed:`,
-                wrappedError
-              );
-              errors.enqueue(wrappedError);
-            });
-          }
-        }
-      } catch (error) {
-        const wrappedError =
-          error instanceof Error ? error : new Error(String(error));
-        console.error(`Processor ${processor.name} failed:`, wrappedError);
-        errors.enqueue(wrappedError);
-      }
-    }
-
-    // If there were any sync errors, throw them
-    if (errors.size > 0) {
-      throw new BatchAggregateError(errors, 'Some batches failed to process');
     }
   }
 
   async function flush(): Promise<void> {
-    const errors = new Queue<Error>();
-
-    for (const chatId of queues.keys()) {
-      try {
-        await processBatch(chatId);
-      } catch (error) {
-        if (error instanceof BatchAggregateError) {
-          for (const e of error.errors) {
-            errors.enqueue(e);
-          }
-        } else if (error instanceof Error) {
-          errors.enqueue(error);
-        } else {
-          errors.enqueue(new Error(String(error)));
-        }
-      }
-    }
-
-    if (errors.size > 0) {
-      throw new BatchAggregateError(
-        errors,
-        'Some batches failed to process during flush'
-      );
-    }
+    const chatIds = Array.from(queues.keys());
+    await Promise.all(chatIds.map(chatId => processBatch(chatId)));
   }
 
   function flushSync(): void {
-    const errors = new Queue<Error>();
+    const chatIds = Array.from(queues.keys());
+    for (const chatId of chatIds) {
+      const queue = queues.get(chatId);
+      if (!queue || queue.size === 0) continue;
 
-    for (const chatId of queues.keys()) {
-      try {
-        processBatchSync(chatId);
-      } catch (error) {
-        if (error instanceof BatchAggregateError) {
-          for (const e of error.errors) {
-            errors.enqueue(e);
-          }
-        } else if (error instanceof Error) {
-          errors.enqueue(error);
-        } else {
-          errors.enqueue(new Error(String(error)));
-        }
+      const timer = timers.get(chatId);
+      if (timer) {
+        clearTimeout(timer);
+        timers.delete(chatId);
       }
-    }
 
-    if (errors.size > 0) {
-      throw new BatchAggregateError(
-        errors,
-        'Some batches failed to process during flush'
-      );
+      const messages = queue.toArray();
+      queues.delete(chatId);
+
+      for (const processor of processors) {
+        processor.processBatch(messages);
+      }
     }
   }
 
@@ -346,28 +174,15 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       processInterval = null;
     }
 
-    // Clear all timers
     for (const timer of timers.values()) {
       clearTimeout(timer);
     }
     timers.clear();
 
-    // Process any remaining messages
-    try {
-      await flush();
-    } catch (error) {
-      if (error instanceof BatchAggregateError) {
-        console.error(
-          'Error processing remaining messages during destroy:',
-          error
-        );
-      }
-    }
-
-    // Clear all queues
+    await flush();
+    removeAllProcessors();
     queues.clear();
-    extraProcessors = [];
-    processorNames.clear();
+    globalBatchers.delete(id);
   }
 
   startProcessing();
@@ -389,6 +204,5 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
   };
 
   globalBatchers.set(id, batcher);
-
   return batcher;
 }

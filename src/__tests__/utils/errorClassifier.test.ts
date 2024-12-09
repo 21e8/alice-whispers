@@ -2,15 +2,15 @@ import type { ErrorPatternConfig } from '../../types';
 import {
   addErrorPatterns,
   classifyError,
-  resetErrorPatterns,
+  // resetErrorPatterns,
   formatClassifiedError,
   ClassifiedError,
 } from '../../utils/errorClassifier';
 
 describe('Error Classifier', () => {
-  beforeEach(() => {
-    resetErrorPatterns();
-  });
+  // beforeEach(() => {
+  //   resetErrorPatterns();
+  // });
 
   it('should classify database constraint violations', async () => {
     const error = new Error(
@@ -102,7 +102,7 @@ describe('Error Classifier', () => {
         'Test error message',
         'TEST_CATEGORY',
         'high',
-        [],
+        undefined,
         false,
         0,
       ];
@@ -117,7 +117,7 @@ describe('Error Classifier', () => {
         'Test error message',
         'TEST_CATEGORY',
         'high',
-        ['key1', 'value1', 'key2', 'value2'],
+        [2, 1000],
         false,
         0,
       ];
@@ -132,7 +132,7 @@ describe('Error Classifier', () => {
         'Test error message',
         'TEST_CATEGORY',
         'high',
-        [],
+        undefined,
         false,
         0,
       ];
@@ -147,10 +147,9 @@ describe('Error Classifier', () => {
         'Test error message',
         'TEST_CATEGORY',
         'high',
-        [],
+        undefined,
         true,
         5,
-        '10s',
       ];
       const formatted = formatClassifiedError(error);
       expect(formatted).toBe('[AGGREGATED] 5 similar errors in 10s');
@@ -161,10 +160,9 @@ describe('Error Classifier', () => {
         'Test error message',
         'TEST_CATEGORY',
         'high',
-        ['errorType', 'network', 'status', '500'],
+        [3, 5000],
         true,
         3,
-        '5s',
       ];
       const formatted = formatClassifiedError(error);
       expect(formatted).toBe(

@@ -11,7 +11,6 @@ export { Queue };
 
 export {
   addErrorPatterns,
-  resetErrorPatterns,
   classifyError,
 } from './utils/errorClassifier';
 

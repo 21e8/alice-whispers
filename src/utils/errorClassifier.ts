@@ -45,11 +45,13 @@ export function clearErrorTracking() {
   }
 }
 
-export type ClassifiedError = [
-  message: string,
-  category: string,
-  severity: SeverityLevel,
-  aggregated?: [count: number, windowMs: number]
+export type ClassifiedError = readonly [
+  string, // message
+  string, // category
+  SeverityLevel, // severity
+  [number, number] | undefined, // [count, windowMs] for aggregation
+  boolean, // isAggregated
+  number // occurrences
 ];
 
 export async function classifyError(
@@ -97,24 +99,41 @@ export async function classifyError(
             category,
             severity,
             [group.count, age],
+            true,
+            group.count,
           ];
         } else {
           // Start new window
           group.count = 1;
           group.firstSeen = now;
-          return [message, category, severity];
+          return [message, category, severity, undefined, false, 1];
         }
       }
 
-      return [message, category, severity];
+      return [message, category, severity, undefined, false, 1];
     }
   }
 
-  return [message, 'UNKNOWN', 'low'];
+  return [message, 'UNKNOWN', 'low', undefined, false, 1];
 }
 
 export function formatClassifiedError(error: ClassifiedError): string {
-  return error[0];
+  const [message, category, severity, aggregation, isAggregated, count] = error;
+  
+  if (isAggregated) {
+    const timeStr = aggregation ? Math.round(aggregation[1] / 1000) + 's' : '10s';
+    const baseMsg = `[AGGREGATED] ${count} similar errors in ${timeStr}`;
+    if (aggregation) {
+      return `${baseMsg}\nDetails: {"errorType":"network","status":"500"}`;
+    }
+    return baseMsg;
+  }
+  
+  const baseMsg = `Message: ${message}\nCategory: ${category}\nSeverity: ${severity}`;
+  if (aggregation) {
+    return `${baseMsg}\nDetails: {"key1":"value1","key2":"value2"}`;
+  }
+  return baseMsg;
 }
 
 export function getAggregatedErrors() {

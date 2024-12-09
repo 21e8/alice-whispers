@@ -1,13 +1,9 @@
-import { BatchAggregateError, createMessageBatcher } from '../batcher';
-import type {
-  MessageBatcher,
-  ExternalMessageProcessor,
-  Message,
-} from '../types';
+import { createMessageBatcher } from '../batcher';
+import { MessageBatcher, Message, MessageProcessor, BatchAggregateError } from '../types';
 import Queue from '../utils/queue';
 
 describe('MessageBatcher', () => {
-  let mockProcessor: ExternalMessageProcessor;
+  let mockProcessor: MessageProcessor;
   let processedMessages: Queue<Message>;
   let batcher: MessageBatcher;
 
@@ -15,7 +11,6 @@ describe('MessageBatcher', () => {
     jest.useFakeTimers();
     processedMessages = new Queue<Message>();
     mockProcessor = {
-      type: 'external' as const,
       name: 'mock',
       processBatch: jest.fn(async (messages) => {
         for (const msg of messages) {
@@ -37,7 +32,6 @@ describe('MessageBatcher', () => {
   it('should process messages with concurrent processors', async () => {
     const processBatchSpy = jest.fn();
     const extraProcessor = {
-      type: 'external' as const,
       name: 'extra',
       processBatch: processBatchSpy,
     };
@@ -121,7 +115,6 @@ describe('MessageBatcher', () => {
 
   it('should handle processor removal', async () => {
     const extraProcessor = {
-      type: 'external' as const,
       name: 'extra',
       processBatch: jest.fn(),
     };
@@ -160,7 +153,6 @@ describe('MessageBatcher', () => {
   it('should process batch when maxBatchSize is reached', async () => {
     const processBatchSpy = jest.fn();
     const testProcessor = {
-      type: 'external' as const,
       name: 'mock',
       processBatch: processBatchSpy,
     };
@@ -191,7 +183,6 @@ describe('MessageBatcher', () => {
   it('should handle sync processor errors', () => {
     const error = new Error('Sync error');
     const errorProcessor = {
-      type: 'external' as const,
       name: 'mock',
       processBatchSync: jest.fn().mockImplementation(() => {
         throw error;
@@ -321,13 +312,11 @@ describe('MessageBatcher', () => {
     });
 
     batcher.addProcessor({
-      type: 'external',
       name: 'mock',
       processBatch: jest.fn(),
     });
 
     batcher.addProcessor({
-      type: 'external',
       name: 'mock',
       processBatch: jest.fn(),
     });
@@ -338,7 +327,6 @@ describe('MessageBatcher', () => {
 
   it('should process messages on interval', async () => {
     const mockProcessor = {
-      type: 'external' as const,
       name: 'mock',
       processBatch: jest.fn(),
     };
@@ -361,7 +349,6 @@ describe('MessageBatcher', () => {
 
   it('should handle removeAllExtraProcessors with mixed processor types', async () => {
     const externalProcessor = {
-      type: 'external' as const,
       name: 'external',
       processBatch: jest.fn(),
     };
@@ -399,13 +386,11 @@ describe('MessageBatcher', () => {
     const error2 = new Error('Error 2');
 
     const failingProcessor1 = {
-      type: 'external' as const,
       name: 'failing1',
       processBatch: jest.fn().mockRejectedValue(error1),
     };
 
     const failingProcessor2 = {
-      type: 'external' as const,
       name: 'failing2',
       processBatch: jest.fn().mockRejectedValue(error2),
     };
@@ -434,7 +419,6 @@ describe('MessageBatcher', () => {
   it('should handle errors during destroy', async () => {
     const error = new Error('Process error');
     const failingProcessor = {
-      type: 'external' as const,
       name: 'failing',
       processBatch: jest.fn().mockRejectedValue(error),
     };

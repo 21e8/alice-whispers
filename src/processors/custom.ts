@@ -1,37 +1,13 @@
 import type { Message, MessageProcessor } from '../types';
-import Queue from '../utils/queue';
 
-export function createCustomProcessor({
-  name,
-  processBatch,
-  processBatchSync,
-}: {
+type CustomProcessorConfig = {
   name: string;
-  processBatch: (messages: Message[]) => Promise<void>;
-  processBatchSync?: (messages: Message[]) => void;
-}): MessageProcessor {
+  processBatch: (messages: Message[]) => void | Promise<void>;
+};
+
+export function createCustomProcessor(config: CustomProcessorConfig): MessageProcessor {
   return {
-    type: 'external',
-    name,
-    processBatch: (queue: Queue<Message>) => {
-      const arr: Message[] = [];
-      while (queue.size > 0) {
-        const item = queue.dequeue();
-        if (item) {
-          arr.push(item);
-        }
-      }
-      return processBatch(arr);
-    },
-    processBatchSync: (queue: Queue<Message>) => {
-      const arr: Message[] = [];
-      while (queue.size > 0) {
-        const item = queue.dequeue();
-        if (item) {
-          arr.push(item);
-        }
-      }
-      return processBatchSync?.(arr);
-    },
+    name: config.name,
+    processBatch: config.processBatch,
   };
 }

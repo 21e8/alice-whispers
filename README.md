@@ -65,11 +65,14 @@ const telegramProcessor = createTelegramProcessor({
 });
 
 // Create a batcher with the processor
-const batcher = createMessageBatcher([telegramProcessor], {
+const batcher = createMessageBatcher({
   maxBatchSize: 10, // Process when 10 messages are queued
   maxWaitMs: 5000, // Or when 5 seconds have passed
   concurrentProcessors: 2, // Run up to 2 processors concurrently
 });
+
+// Add the processor to the batcher
+batcher.addProcessor(telegramProcessor);
 
 // Send messages
 batcher.info('Service started');

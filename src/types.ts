@@ -1,8 +1,18 @@
 import Queue from "./utils/queue";
 
+// Custom AggregateError implementation
+export class BatchAggregateError extends Error {
+  readonly errors: Queue<Error>;
+
+  constructor(errors: Queue<Error>, message: string) {
+    super(message);
+    this.name = 'BatchAggregateError';
+    this.errors = errors;
+  }
+}
+
 export type NotificationLevel = 'info' | 'warning' | 'error';
 
-// Predefined severity levels with option for custom strings
 export type SeverityLevel =
   | 'low'
   | 'medium'
@@ -17,20 +27,13 @@ export type Message = [
   (Error | string)? // optional error
 ];
 
-// External object format for processor implementations
-// export type MessageObject = {
-//   chatId: string;
-//   text: string;
-//   level: NotificationLevel;
-//   error?: Error | string;
-// };
-
 export type BatcherConfig = {
   maxBatchSize: number;
   maxWaitMs: number;
   concurrentProcessors?: number;
   singleton?: boolean;
   id?: string;
+  processors?: MessageProcessor[];
 };
 
 export interface TelegramConfig {
@@ -40,33 +43,11 @@ export interface TelegramConfig {
   development?: boolean;
 }
 
-// Internal processor interface
-export interface InternalMessageProcessor {
-  type: 'internal';
-  name: string;
-  processBatch(messages: Queue<Message>): void | Promise<void>;
-  processBatchSync?(messages: Queue<Message>): void;
-}
-
-// External processor interface
+// Simple processor interface that works with arrays
 export interface MessageProcessor {
-  type: 'external' | 'internal';
-  name: string;
-  processBatch(messages: Queue<Message>): void | Promise<void>;
-  processBatchSync?(messages: Queue<Message>): void;
-}
-// External processor interface
-export interface ExternalMessageProcessor {
-  type: 'external';
   name: string;
   processBatch(messages: Message[]): void | Promise<void>;
-  processBatchSync?(messages: Message[]): void;
 }
-
-// Helper type to convert external processor to internal
-export type ProcessorAdapter = (
-  processor: MessageProcessor
-) => InternalMessageProcessor;
 
 export interface MessageBatcher {
   info(message: string): void;
@@ -79,37 +60,12 @@ export interface MessageBatcher {
   destroy(): Promise<void>;
   queues: Map<string, Queue<Message>>;
   timers: Map<string, NodeJS.Timeout>;
-  addProcessor(processor: ExternalMessageProcessor | InternalMessageProcessor): void;
+  addProcessor(processor: MessageProcessor): void;
   removeProcessor(name: string): void;
   removeAllProcessors(): void;
 }
 
-export type ProcessorOptions = {
-  markdown?: {
-    escapeSpecialChars?: boolean;
-  };
-};
-
-export type ProcessorConfig = {
-  type: string;
-  options?: ProcessorOptions[keyof ProcessorOptions];
-};
-
-export type ProcessorResult = {
-  text: string;
-  parseMode?: 'HTML' | 'MarkdownV2';
-  silent?: boolean;
-};
-
-export type Processor = {
-  process: (
-    message: string,
-    config?: ProcessorConfig
-  ) => Promise<ProcessorResult>;
-};
-
-
-// Define the named object interface
+// Error pattern types
 export type ErrorPatternConfig = {
   readonly name: string;
   readonly pattern:
@@ -125,7 +81,6 @@ export type ErrorPatternConfig = {
   };
 };
 
-// Internal tuple type for storage
 export type ErrorPattern = readonly [
   (
     | RegExp
