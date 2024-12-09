@@ -45,7 +45,7 @@ describe('TelegramProcessor', () => {
     const body = JSON.parse(options.body);
     expect(body).toEqual({
       chat_id: defaultConfig.chatId,
-      text: 'ℹ️ [INFO] info message\n⚠️ [WARNING] warning message\n🚨 [ERROR] error message',
+      text: 'ℹ️ info message\n\n⚠️ warning message\n\n🚨 error message',
       parse_mode: 'HTML',
     });
   });
@@ -174,7 +174,7 @@ describe('TelegramProcessor', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [, options] = (global.fetch as jest.Mock).mock.calls[0];
     const body = JSON.parse(options.body);
-    expect(body.text).toContain('🚨 [ERROR] Error occurred');
+    expect(body.text).toContain('🚨 Error occurred');
     expect(body.text).toContain('Test error');
   });
 });

@@ -71,8 +71,8 @@ export type ErrorPatternConfig = {
   readonly pattern:
     | RegExp
     | ((message: string) => boolean)
-    | Promise<boolean>
-    | ((message: string) => Promise<boolean>);
+    // | Promise<boolean>
+    // | ((message: string) => Promise<boolean>);
   readonly category: string;
   readonly severity: SeverityLevel;
   readonly aggregation?: {
@@ -85,8 +85,8 @@ export type ErrorPattern = readonly [
   (
     | RegExp
     | ((message: string) => boolean)
-    | Promise<boolean>
-    | ((message: string) => Promise<boolean>)
+    // | Promise<boolean>
+    // | ((message: string) => Promise<boolean>)
   ),
   string, // category
   SeverityLevel, // severity

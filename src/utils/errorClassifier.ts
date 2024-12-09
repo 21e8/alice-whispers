@@ -2,7 +2,12 @@
 import type { ErrorPattern, ErrorPatternConfig, SeverityLevel } from '../types';
 
 // Store error patterns
-const errorPatterns: ErrorPattern[] = [];
+const errorPatterns: ErrorPattern[] = [
+  // Database constraint violations
+  [/duplicate key value/i, 'DATABASE_CONSTRAINT_VIOLATION', 'medium'],
+  // Connection errors
+  [/connection refused/i, 'CONNECTION_ERROR', 'high'],
+];
 
 // Track message occurrences for aggregation
 type MessageGroup = {
@@ -15,6 +20,7 @@ type MessageGroup = {
 };
 
 const messageGroups = new Map<string, MessageGroup>();
+
 
 export function addErrorPatterns(patterns: ErrorPatternConfig[]) {
   for (const pattern of patterns) {
@@ -54,10 +60,10 @@ export type ClassifiedError = readonly [
   number // occurrences
 ];
 
-export async function classifyError(
+export function classifyError(
   error: Error | string,
   level = 'error'
-): Promise<ClassifiedError> {
+): ClassifiedError {
   const message = error instanceof Error ? error.message : error;
   const now = Date.now();
 
@@ -68,13 +74,12 @@ export async function classifyError(
     if (pattern instanceof RegExp) {
       matches = pattern.test(message);
     } else if (typeof pattern === 'function') {
-      const result = pattern(message);
-      matches = result instanceof Promise ? await result : result;
+      matches = pattern(message);
     }
 
     if (matches) {
       if (aggregation) {
-        const [windowMs] = aggregation;
+        const [windowMs, countThreshold] = aggregation;
         const key = `${category}-${severity}-${level}`;
 
         let group = messageGroups.get(key);
@@ -94,19 +99,20 @@ export async function classifyError(
         const age = now - group.firstSeen;
         if (age <= windowMs) {
           group.count++;
-          return [
-            `${group.count} ${level} messages of category ${category} occurred`,
-            category,
-            severity,
-            [group.count, age],
-            true,
-            group.count,
-          ];
+          if (group.count >= countThreshold) {
+            return [
+              message,
+              category,
+              severity,
+              [group.count, age],
+              true,
+              group.count,
+            ];
+          }
         } else {
           // Start new window
           group.count = 1;
           group.firstSeen = now;
-          return [message, category, severity, undefined, false, 1];
         }
       }
 

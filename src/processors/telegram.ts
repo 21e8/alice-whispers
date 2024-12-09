@@ -17,7 +17,9 @@ type TelegramApiError = {
   description: string;
 };
 
-export function createTelegramProcessor(config: TelegramConfig): MessageProcessor {
+export function createTelegramProcessor(
+  config: TelegramConfig
+): MessageProcessor {
   const { botToken, chatId, development = false } = config;
 
   return {
@@ -54,7 +56,7 @@ export function createTelegramProcessor(config: TelegramConfig): MessageProcesso
         throw new Error(
           `Failed to send Telegram message: ${response.status} ${
             response.statusText
-          }\n${await response.text()}`
+          }\n${await (response && response.text && response.text())}`
         );
       }
     },
