@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   classifyMessage,
   formatClassifiedError,
@@ -48,6 +49,39 @@ describe('Error Classifier', () => {
   });
 
   describe('classifyMessage', () => {
+
+    it('should reset count and start new window when window expires', () => {
+      // Add a pattern with a short window
+      addErrorPatterns([{
+        name: 'window-test',
+        pattern: /test message/i,
+        category: 'TEST_CATEGORY',
+        severity: 'medium',
+        aggregation: {
+          windowMs: 100,  // Short window for testing
+          countThreshold: 2
+        }
+      }]);
+  
+      // Send first message
+      const result1 = classifyMessage('test message');
+      expect(result1[4]).toBe(false); // Not aggregated
+      expect(result1[5]).toBe(1);     // Count is 1
+  
+      // Advance time past window
+      jest.advanceTimersByTime(150);  // More than windowMs
+  
+      // Send second message - should start new window
+      const result2 = classifyMessage('test message');
+      expect(result2[4]).toBe(false); // Not aggregated
+      expect(result2[5]).toBe(1);     // Count should be reset to 1
+  
+      // Send third message immediately - should count in new window
+      const result3 = classifyMessage('test message');
+      expect(result3[4]).toBe(true);  // Now aggregated
+      expect(result3[5]).toBe(2);     // Count should be 2 in new window
+    });
+    
     it('should classify database constraint violations', () => {
       const result = classifyMessage('duplicate key value', 'error');
       expect(result[1]).toBe('DATABASE_CONSTRAINT_VIOLATION');
