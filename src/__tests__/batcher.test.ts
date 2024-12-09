@@ -261,7 +261,6 @@ describe('MessageBatcher', () => {
 
   it('should handle multiple concurrent processors with different speeds', async () => {
     const slowProcessor = {
-      type: 'external' as const,
       name: 'slow',
       processBatch: jest.fn(async () => {
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -269,7 +268,6 @@ describe('MessageBatcher', () => {
     };
 
     const fastProcessor = {
-      type: 'external' as const,
       name: 'fast',
       processBatch: jest.fn(async () => {
         await Promise.resolve();

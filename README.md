@@ -188,7 +188,6 @@ import { createCustomProcessor, type Message } from 'alice-whispers';
 
 const consoleProcessor = createCustomProcessor({
   name: 'console',
-  type: 'external',
   processBatch: async (messages: Message[]) => {
     for (const msg of messages) {
       console.log(`[${msg[2].toUpperCase()}] ${msg[1]}`);
