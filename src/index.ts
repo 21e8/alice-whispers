@@ -9,10 +9,7 @@ export { createConsoleProcessor } from './processors/console';
 import Queue from './utils/queue';
 export { Queue };
 
-export {
-  addErrorPatterns,
-  classifyError,
-} from './utils/classify';
+export { addErrorPatterns, classifyMessage } from './utils/classify';
 
 export { createMessageBatcher } from './batcher';
 export type {
