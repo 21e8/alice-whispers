@@ -55,7 +55,7 @@ export interface MessageBatcher {
   error(message: string, error?: Error | string): void;
   queueMessage(message: string, level: NotificationLevel): void;
   processBatch(chatId: string): void;
-  flush(): Promise<void>;
+  flush(): Promise<Queue<Error>>;
   flushSync(): void;
   destroy(): Promise<void>;
   queues: Map<string, Queue<Message>>;

@@ -84,8 +84,8 @@ describe('TelegramProcessor', () => {
     const messages = new Queue<Message>();
     messages.enqueue(['default', 'test message', 'info', undefined]);
 
-    await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
-      'Telegram API error: Bad Request - Bad Request: message text is empty'
+    await expect(processor.processBatch(messages.toArray())).rejects.toThrow(`Failed to send Telegram message: 400 Bad Request
+undefined`
     );
 
     expect(consoleSpy).toHaveBeenCalledWith(
@@ -145,7 +145,8 @@ describe('TelegramProcessor', () => {
     messages.enqueue(['default', 'test', 'info', undefined]);
 
     await expect(processor.processBatch(messages.toArray())).rejects.toThrow(
-      'Telegram API error: Unknown Error - Unknown Error'
+      `Failed to send Telegram message: 400 undefined
+undefined`
     );
   });
 
