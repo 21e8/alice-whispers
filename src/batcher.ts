@@ -138,24 +138,18 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     const errors = new Queue<Error>();
 
     for (const chunk of chunks) {
-      try {
-        await Promise.all(
-          processors.map(async (processor) => {
-            try {
-              await processor.processBatch(chunk);
-            } catch (error) {
-              errors.enqueue(
-                error instanceof Error ? error : new Error(String(error))
-              );
-            }
-          })
-        );
-      } catch (error) {
-        errors.enqueue(
-          error instanceof Error ? error : new Error(String(error))
-        );
+      for (const processor of processors) {
+        try {
+          if (typeof processor.processBatch !== 'function') {
+            throw new Error('processor.processBatch is not a function');
+          }
+          await processor.processBatch(chunk);
+        } catch (error) {
+          errors.enqueue(error instanceof Error ? error : new Error(String(error)));
+        }
       }
     }
+
     return errors;
   }
 
@@ -163,31 +157,25 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     const errors = new Queue<Error>();
     const chatIds = Array.from(queues.keys());
 
-    const results = await Promise.all(
-      chatIds.map(async (chatId) => {
+    await Promise.all(
+      chatIds.map(async chatId => {
         try {
           const result = await processBatch(chatId);
-          return result;
+          for (const error of result.toArray()) {
+            errors.enqueue(error);
+          }
         } catch (error) {
           if (error instanceof BatchAggregateError) {
             for (const e of error.errors) {
               errors.enqueue(e);
             }
           } else {
-            errors.enqueue(
-              error instanceof Error ? error : new Error(String(error))
-            );
+            errors.enqueue(error instanceof Error ? error : new Error(String(error)));
           }
         }
       })
     );
-    for (const result of results) {
-      if (result) {
-        for (const error of result.toArray()) {
-          errors.enqueue(error);
-        }
-      }
-    }
+
     return errors;
   }
 

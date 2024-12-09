@@ -230,19 +230,13 @@ describe('MessageBatcher', () => {
     batcher.addProcessor(errorProcessor);
     batcher.info('test message');
 
-    try {
-      await batcher.flush();
-      fail('Expected BatchAggregateError to be thrown');
-    } catch (e) {
-      expect(e).toBeInstanceOf(BatchAggregateError);
-      const batchError = e as BatchAggregateError;
-      expect(batchError.errors.dequeue()?.message).toBe('Async error');
-    }
+    const errors = await batcher.flush();
+    expect(errors.size).toBe(1);
+    expect(errors.dequeue()?.message).toBe('Async error');
   });
 
   it('should handle batch processing errors', async () => {
     const errorProcessor = {
-      type: 'external' as const,
       name: 'error',
       processBatch: undefined as any,
     };
@@ -255,16 +249,9 @@ describe('MessageBatcher', () => {
     batcher.addProcessor(errorProcessor);
     batcher.info('test message');
 
-    try {
-      await batcher.flush();
-      fail('Expected BatchAggregateError to be thrown');
-    } catch (e) {
-      expect(e).toBeInstanceOf(BatchAggregateError);
-      const batchError = e as BatchAggregateError;
-      expect(batchError.errors.dequeue()?.message).toBe(
-        'processor.processBatch is not a function'
-      );
-    }
+    const errors = await batcher.flush();
+    expect(errors.size).toBe(1);
+    expect(errors.dequeue()?.message).toBe('processor.processBatch is not a function');
   });
 
   it('should handle multiple concurrent processors with different speeds', async () => {
@@ -404,19 +391,11 @@ describe('MessageBatcher', () => {
     batcher.addProcessor(failingProcessor2);
     batcher.info('test message');
 
-    try {
-      await batcher.flush();
-      fail('Expected BatchAggregateError to be thrown');
-    } catch (e) {
-      expect(e).toBeInstanceOf(BatchAggregateError);
-      const batchError = e as BatchAggregateError;
-      const errors: Error[] = [];
-      while (batchError.errors.size > 0) {
-        errors.push(batchError.errors.dequeue()!);
-      }
-      expect(errors).toContainEqual(error1);
-      expect(errors).toContainEqual(error2);
-    }
+    const errors = await batcher.flush();
+    expect(errors.size).toBe(2);
+    const errorArray = errors.toArray();
+    expect(errorArray).toContainEqual(error1);
+    expect(errorArray).toContainEqual(error2);
   });
 
   it('should handle errors during destroy', async () => {
