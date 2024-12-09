@@ -527,3 +527,291 @@ describe('Message Classification', () => {
     await batcher.destroy();
   });
 });
+
+describe('Batcher Initialization and Singleton', () => {
+  let mockProcessor: MessageProcessor;
+  let batcher1: MessageBatcher;
+  let batcher2: MessageBatcher;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockProcessor = {
+      name: 'mock',
+      processBatch: jest.fn(),
+    };
+  });
+
+  afterEach(async () => {
+    if (batcher1) await batcher1.destroy();
+    if (batcher2) await batcher2.destroy();
+    jest.clearAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('should warn when creating multiple batchers', () => {
+    const consoleSpy = jest.spyOn(console, 'warn');
+
+    batcher1 = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      id: 'test',
+    });
+
+    batcher2 = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      id: 'test2',
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'You are trying to create a new batcher while there is already one. This is currently not supported. Be at your own risk.'
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('should return existing batcher when singleton is true', () => {
+    batcher1 = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      id: 'test',
+      singleton: true,
+    });
+
+    batcher2 = createMessageBatcher({
+      maxBatchSize: 10, // Different config
+      maxWaitMs: 200,
+      id: 'test',
+      singleton: true,
+    });
+
+    // Should be the same instance
+    expect(batcher1).toBe(batcher2);
+  });
+
+  it('should create new batcher when singleton is false', () => {
+    batcher1 = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+      id: 'test',
+      singleton: false,
+    });
+
+    batcher2 = createMessageBatcher({
+      maxBatchSize: 10,
+      maxWaitMs: 200,
+      id: 'test',
+      singleton: false,
+    });
+
+    // Should be different instances
+    expect(batcher1).not.toBe(batcher2);
+  });
+});
+
+describe('Queue and Timer Behavior', () => {
+  let mockProcessor: MessageProcessor;
+  let batcher: MessageBatcher;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockProcessor = {
+      name: 'mock',
+      processBatch: jest.fn(),
+    };
+  });
+
+  afterEach(async () => {
+    if (batcher) await batcher.destroy();
+    jest.clearAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('should create new queue for first message', () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    expect(batcher.queues.size).toBe(0);
+    batcher.queueMessage('test', 'info');
+    expect(batcher.queues.size).toBe(1);
+    expect(batcher.queues.get('default')?.size).toBe(1);
+  });
+
+  it('should create timer for first message', () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    expect(batcher.timers.size).toBe(0);
+    batcher.queueMessage('test', 'info');
+    expect(batcher.timers.size).toBe(1);
+  });
+
+  it('should process messages when timer expires', async () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.addProcessor(mockProcessor);
+    batcher.queueMessage('test', 'info');
+
+    // Timer hasn't expired yet
+    expect(mockProcessor.processBatch).not.toHaveBeenCalled();
+
+    // Advance timer
+    jest.advanceTimersByTime(100);
+    await Promise.resolve();
+
+    expect(mockProcessor.processBatch).toHaveBeenCalled();
+  });
+});
+
+describe('Concurrent Processing Edge Cases', () => {
+  // let mockProcessor: MessageProcessor;
+  let batcher: MessageBatcher;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // mockProcessor = {
+    //   name: 'mock',
+    //   processBatch: jest.fn(),
+    // };
+  });
+
+  afterEach(async () => {
+    if (batcher) await batcher.destroy();
+    jest.clearAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('should handle processor throwing non-Error', async () => {
+    const throwingProcessor = {
+      name: 'throwing',
+      processBatch: jest.fn().mockRejectedValue('string error'),
+    };
+
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.addProcessor(throwingProcessor);
+    batcher.info('test');
+
+    const errors = await batcher.flush();
+    expect(errors.size).toBe(1);
+    expect(errors.dequeue()).toBe('string error');
+  });
+
+  it('should handle processor returning invalid value', async () => {
+    const invalidProcessor = {
+      name: 'invalid',
+      processBatch: jest.fn().mockResolvedValue('not void'),
+    };
+
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.addProcessor(invalidProcessor);
+    batcher.info('test');
+
+    const errors = await batcher.flush();
+    expect(errors.size).toBe(0); // Should not error on invalid return
+  });
+});
+
+describe('Flush and Destroy Behavior', () => {
+  // let mockProcessor: MessageProcessor;
+  let batcher: MessageBatcher;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // mockProcessor = {
+    //   name: 'mock',
+    //   processBatch: jest.fn(),
+    // };
+  });
+
+  afterEach(async () => {
+    if (batcher) await batcher.destroy();
+    jest.clearAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it('should clear timers on destroy', async () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.info('test');
+    expect(batcher.timers.size).toBe(1);
+
+    await batcher.destroy();
+    expect(batcher.timers.size).toBe(0);
+  });
+
+  it('should clear queues on destroy', async () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.info('test');
+    expect(batcher.queues.size).toBe(1);
+
+    await batcher.destroy();
+    expect(batcher.queues.size).toBe(0);
+  });
+
+  it('should handle destroy with pending messages', async () => {
+    const slowProcessor = {
+      name: 'slow',
+      processBatch: jest.fn(async () => {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }),
+    };
+
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    batcher.addProcessor(slowProcessor);
+    batcher.info('test');
+
+    const destroyPromise = batcher.destroy();
+    jest.advanceTimersByTime(1000);
+    await destroyPromise;
+
+    expect(slowProcessor.processBatch).toHaveBeenCalled();
+  });
+
+  it('should handle flush with no messages', async () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    const errors = await batcher.flush();
+    expect(errors.size).toBe(0);
+  });
+
+  it('should handle flushSync with no messages', () => {
+    batcher = createMessageBatcher({
+      maxBatchSize: 5,
+      maxWaitMs: 100,
+    });
+
+    expect(() => batcher.flushSync()).not.toThrow();
+  });
+});
