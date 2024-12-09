@@ -8,6 +8,7 @@ import {
 } from './types';
 import Queue from './utils/queue';
 import { classifyMessage } from './utils/classify';
+import { createConsoleProcessor } from './processors/console';
 
 const globalBatchers = new Map<string, MessageBatcher>();
 
@@ -302,3 +303,10 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
   globalBatchers.set(id, batcher);
   return batcher;
 }
+
+createMessageBatcher({
+  id: 'test',
+  processors: [createConsoleProcessor()],
+  maxBatchSize: 100,
+  maxWaitMs: 1000,
+});

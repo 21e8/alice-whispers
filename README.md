@@ -33,6 +33,7 @@ Alice Whispers uses queues as its primary data structure for several key reasons
 4. **Iterator Support**: Our Queue implementation provides standard iterator support, making it easy to process messages in sequence while maintaining clean code.
 
 The Queue class is exported and can be used directly if needed:
+
 ```typescript
 import { Queue } from 'alice-whispers';
 
@@ -108,10 +109,8 @@ const batcher = createMessageBatcher({
   maxBatchSize: 10, // Process when 10 messages are queued
   maxWaitMs: 5000, // Or when 5 seconds have passed
   concurrentProcessors: 2, // Run up to 2 processors concurrently
+  processors: [telegramProcessor],
 });
-
-// Add the processor to the batcher
-batcher.addProcessor(telegramProcessor);
 
 // Send messages
 batcher.info('Service started');
@@ -150,20 +149,18 @@ addErrorPatterns([
   },
 ]);
 
+const telegramProcessor = createTelegramProcessor({
+  botToken: process.env.TELEGRAM_BOT_TOKEN!,
+  chatId: process.env.TELEGRAM_CHAT_ID!,
+});
+
 // Create processor with larger batch size
 const batcher = createMessageBatcher({
   maxBatchSize: 100, // Process in batches of 100
   maxWaitMs: 30000, // Or every 30 seconds
   concurrentProcessors: 3, // Run multiple processors in parallel
+  processors: [telegramProcessor],
 });
-
-// Add your processors
-batcher.addProcessor(
-  createTelegramProcessor({
-    botToken: process.env.TELEGRAM_BOT_TOKEN!,
-    chatId: process.env.TELEGRAM_CHAT_ID!,
-  })
-);
 
 // Simulate high-volume message processing
 for (let i = 0; i < 1000; i++) {
@@ -196,7 +193,11 @@ const consoleProcessor = createCustomProcessor({
 });
 
 // Add to batcher
-const batcher = createMessageBatcher([consoleProcessor], config);
+const batcher = createMessageBatcher({
+  processors: [consoleProcessor],
+  maxBatchSize: 100,
+  maxWaitMs: 1000,
+});
 ```
 
 ## Message Format
@@ -309,10 +310,7 @@ type ErrorPattern = readonly [
 ### Multiple Processors
 
 ```typescript
-const batcher = createMessageBatcher(
-  [telegramProcessor, consoleProcessor, emailProcessor],
-  config
-);
+const batcher = createMessageBatcher(config);
 ```
 
 ### Dynamic Processor Management
@@ -411,12 +409,14 @@ Output: Aggregated to just 4 meaningful messages:
 The library uses a custom Queue data structure (inspired by [yocto-queue](https://github.com/sindresorhus/yocto-queue)) for efficient message handling. The Queue provides constant time O(1) operations for both enqueue and dequeue operations, making it ideal for high-throughput message processing.
 
 ### Why Use a Queue?
+
 - **Constant Time Operations**: Both enqueue and dequeue are O(1), unlike arrays where shift() is O(n)
 - **Memory Efficient**: Uses a linked list internally, no array resizing or copying
 - **FIFO Guarantee**: Messages are processed in the exact order they were received
 - **Iterator Support**: Can be used in for...of loops and spread operations
 
 ### Queue Methods
+
 ```typescript
 const queue = new Queue<Message>();
 
@@ -439,6 +439,7 @@ queue.clear();
 ```
 
 ### Converting Between Arrays and Queues
+
 ```typescript
 // Array to Queue
 const array = [1, 2, 3];
