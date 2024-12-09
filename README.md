@@ -181,16 +181,21 @@ for (let i = 0; i < 1000; i++) {
 Create your own message processors:
 
 ```typescript
-import { createCustomProcessor, type Message } from 'alice-whispers';
+import {
+  createCustomProcessor,
+  type Message,
+  msgToMsgsObjects,
+} from 'alice-whispers';
+
+const myBatchProcessor = async (messages: Message[]) => {
+  doSomething(msgToMsgsObjects(messages));
+  // or use messages directly as an array (recommended)
+};
 
 const consoleProcessor = createCustomProcessor({
   name: 'my-processor',
-  processBatch: async (messages: Message[]) => {
-    for (const msg of messages) {
-      const [, text, level] = msg;
-      console.log(`[${level.toUpperCase()}] ${text}`);
-    }
-  },
+  // here you can define what you want to do with the messages
+  processBatch: myBatchProcessor,
 });
 
 // Add to batcher
