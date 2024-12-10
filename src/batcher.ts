@@ -314,7 +314,12 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     for (const [chatId] of queues) {
       try {
-        await processBatch(chatId);
+        const batchErrors = await processBatch(chatId);
+        if (batchErrors.size > 0) {
+          for (const error of batchErrors) {
+            errors.enqueue(error);
+          }
+        }
       } catch (error) {
         if (error instanceof BatchAggregateError) {
           const errorArray = error.errors.toArray();
