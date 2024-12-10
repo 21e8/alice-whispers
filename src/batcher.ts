@@ -141,8 +141,8 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     }
 
     const remainingWaitTime = Math.max(0, maxWaitMs - timeWaiting);
-    timer = setTimeout(async () => {
-      await processBatch(chatId);
+    timer = setTimeout(() => {
+      processBatch(chatId);
     }, remainingWaitTime);
 
     timers.set(chatId, timer);
