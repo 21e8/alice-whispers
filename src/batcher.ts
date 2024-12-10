@@ -265,7 +265,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       const batch = processorArray.slice(i, i + concurrentProcessors);
 
       const results = await Promise.allSettled(
-        batch.map((processor) => processor.processBatch(queue.toArray()))
+        batch.map((processor) => processor.processBatch(queue))
       );
 
       // Collect errors from rejected promises
