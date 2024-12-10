@@ -820,17 +820,20 @@ describe('Flush and Destroy Behavior', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      singleton: false,
     });
 
     batcher.addProcessor(slowProcessor);
     batcher.info('test');
 
+    // Start destroy and advance timers for both the queue timer and the slow processor
     const destroyPromise = batcher.destroy();
-    jest.advanceTimersByTime(1000);
+    jest.advanceTimersByTime(100); // Queue timer
+    await Promise.resolve(); // Handle microtasks
+    jest.advanceTimersByTime(1000); // Slow processor
     await destroyPromise;
 
     expect(slowProcessor.processBatch).toHaveBeenCalled();
-    // await batcher.destroyAll();
   });
 
   it('should handle flush with no messages', async () => {
