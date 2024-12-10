@@ -59,7 +59,7 @@ const handleQueue = (messages: Queue<Message>, config: TelegramConfig) => {
   }
 };
 
-const handleMessages = async (messages: Message[], config: TelegramConfig) => {
+const handleMessages = (messages: Message[], config: TelegramConfig) => {
   const formattedMessages = messages
     .map(([, text, level, error]) => {
       if (!shouldLog(level, config.logLevel)) return null;
@@ -78,13 +78,7 @@ const handleMessages = async (messages: Message[], config: TelegramConfig) => {
   }
 
   try {
-    const response = await sendTelegramMessage(formattedMessages, config);
-    if (!response.ok) {
-      console.error('[Telegram] API Response:', response.statusText);
-      throw new Error(
-        `Failed to send Telegram message: ${response.status} ${response.statusText}`
-      );
-    }
+    sendTelegramMessage(formattedMessages, config);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error(
@@ -103,7 +97,7 @@ export function createTelegramProcessor(
     logLevel: normalizeLogLevel(config.logLevel),
     processBatch: async (messages: Message[] | Queue<Message>) => {
       if (messages instanceof Queue) {
-        await handleQueue(messages, config);
+        handleQueue(messages, config);
         return;
       }
 
