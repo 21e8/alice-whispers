@@ -53,7 +53,9 @@ const handleQueue = (messages: Queue<Message>, config: TelegramConfig) => {
   const filteredMessagesString = filteredMessages.join('\n\n');
 
   try {
-    sendTelegramMessage(filteredMessagesString, config);
+    sendTelegramMessage(filteredMessagesString, config).catch((error) => {
+      console.error('[Telegram] API Response:', error);
+    });
   } catch (error) {
     console.error('[Telegram] API Response:', error);
   }
