@@ -4,7 +4,7 @@ import {
   BatcherConfig,
   NotificationLevel,
   MessageProcessor,
-  BatchAggregateError,
+  // BatchAggregateError,
 } from './types';
 import Queue from './utils/queue';
 import { classifyMessage } from './utils/classify';
@@ -113,6 +113,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     // Check if first message has been waiting too long
     const firstMessageTime = queueTimestamps.get(chatId) || Date.now();
     const timeWaiting = Date.now() - firstMessageTime;
+    // debugger;
     if (timeWaiting >= maxWaitMs) {
       await processBatch(chatId);
       return;
@@ -161,7 +162,6 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     try {
       const queue = queues.get(chatId);
       if (!queue || queue.size === 0) {
-        releaseLock(chatId);
         return new Queue<Error>();
       }
 
@@ -253,11 +253,6 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
         }
       }
 
-      // Only throw if we actually collected errors
-      // if (allErrors.size > 0) {
-      //   const batchError = new BatchAggregateError(allErrors, 'Batch processing failed');
-      //   throw batchError;
-      // }
       return allErrors;
     } finally {
       releaseLock(chatId);
@@ -321,10 +316,11 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
           }
         }
       } catch (error) {
-        if (error instanceof BatchAggregateError) {
-          const errorArray = error.errors.toArray();
-          errorArray.forEach(e => errors.enqueue(e));
-        } else if (error instanceof Error) {
+        // if (error instanceof BatchAggregateError) {
+        //   const errorArray = error.errors.toArray();
+        //   errorArray.forEach(e => errors.enqueue(e));
+        // } else if (error instanceof Error) {
+        if (error instanceof Error) {
           errors.enqueue(error);
         } else {
           errors.enqueue(new Error(String(error)));

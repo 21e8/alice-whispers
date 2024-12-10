@@ -351,13 +351,20 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      singleton: false,
+      processors: [mockProcessor],  
     });
 
-    batcher.addProcessor(mockProcessor);
     batcher.info('test message');
 
+    // Advance timer and handle all promises
     jest.advanceTimersByTime(100);
-    await Promise.resolve(); // Let any pending promises resolve
+    await Promise.resolve(); // Handle microtasks
+    await new Promise(resolve => setImmediate(resolve)); // Handle Node.js event loop
+    await Promise.resolve(); // Handle any remaining microtasks
+
+    // Force flush to ensure processing
+    await batcher.flush();
 
     expect(mockProcessor.processBatch).toHaveBeenCalledWith([
       ['default', 'test message', 'info', undefined],
@@ -441,8 +448,6 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle errors during destroy', async () => {
-    jest.useFakeTimers();
-
     const error = new Error('Process error');
     const failingProcessor = {
       name: 'failing',
@@ -465,8 +470,6 @@ describe('MessageBatcher', () => {
     const errors = await batcher.destroy();
     expect(errors.size).toBe(1);
     expect(errors.dequeue()?.message).toBe('Process error');
-
-    jest.useRealTimers();
   });
 });
 
