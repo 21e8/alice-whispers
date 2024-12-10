@@ -48,7 +48,7 @@ describe('MessageBatcher', () => {
   afterEach(async () => {
     if (batcher) {
       try {
-        await batcher.destroy();
+        await batcher.destroyAll();
       } catch (error) {
         // Ignore cleanup errors
       }
@@ -69,10 +69,9 @@ describe('MessageBatcher', () => {
       maxBatchSize: 5,
       maxWaitMs: 100,
       concurrentProcessors: 2,
+      processors: [mockProcessor, extraProcessor],
     });
 
-    batcher.addProcessor(mockProcessor);
-    batcher.addProcessor(extraProcessor);
     batcher.info('test message');
     await batcher.flush();
 
@@ -88,9 +87,9 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [mockProcessor],
     });
 
-    batcher.addProcessor(mockProcessor);
     batcher.info('Test info message');
     await batcher.flush();
 
@@ -107,9 +106,9 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [mockProcessor],
     });
 
-    batcher.addProcessor(mockProcessor);
     batcher.warning('Test warning message');
     await batcher.flush();
 
@@ -126,9 +125,9 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [mockProcessor],
     });
 
-    batcher.addProcessor(mockProcessor);
     const testError = new Error('Test error occurred');
     batcher.error('Test error message', testError);
     await batcher.flush();
@@ -151,9 +150,9 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [mockProcessor, extraProcessor],
     });
 
-    batcher.addProcessor(extraProcessor);
     batcher.info('test message');
     await batcher.flush();
 
@@ -189,9 +188,10 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 2,
       maxWaitMs: 1000,
+      processors: [testProcessor],
     });
 
-    batcher.addProcessor(testProcessor);
+    // batcher.addProcessor(testProcessor);
 
     // Add messages up to maxBatchSize
     batcher.info('message 1');
@@ -221,9 +221,10 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [errorProcessor],
     });
 
-    batcher.addProcessor(errorProcessor);
+    // batcher.addProcessor(errorProcessor);
     batcher.info('test message');
 
     try {
@@ -267,9 +268,10 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [errorProcessor],
     });
 
-    batcher.addProcessor(errorProcessor);
+    // batcher.addProcessor(errorProcessor);
     batcher.info('test message');
 
     const errors = await batcher.flush();
@@ -301,10 +303,11 @@ describe('MessageBatcher', () => {
       maxWaitMs: 100,
       concurrentProcessors: 2,
       singleton: false,
+      processors: [slowProcessor, fastProcessor],
     });
 
-    batcher.addProcessor(slowProcessor);
-    batcher.addProcessor(fastProcessor);
+    // batcher.addProcessor(slowProcessor);
+    // batcher.addProcessor(fastProcessor);
     batcher.info('test message');
 
     // Advance timers and handle all pending promises
@@ -326,16 +329,7 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
-    });
-
-    batcher.addProcessor({
-      name: 'mock',
-      processBatch: jest.fn(),
-    });
-
-    batcher.addProcessor({
-      name: 'mock',
-      processBatch: jest.fn(),
+      processors: [mockProcessor, mockProcessor],
     });
 
     expect(consoleSpy).toHaveBeenCalledWith('Processor mock already exists');
@@ -352,7 +346,7 @@ describe('MessageBatcher', () => {
       maxBatchSize: 5,
       maxWaitMs: 100,
       singleton: false,
-      processors: [mockProcessor],  
+      processors: [mockProcessor],
     });
 
     batcher.info('test message');
@@ -360,7 +354,7 @@ describe('MessageBatcher', () => {
     // Advance timer and handle all promises
     jest.advanceTimersByTime(100);
     await Promise.resolve(); // Handle microtasks
-    await new Promise(resolve => setImmediate(resolve)); // Handle Node.js event loop
+    await new Promise((resolve) => setImmediate(resolve)); // Handle Node.js event loop
     await Promise.resolve(); // Handle any remaining microtasks
 
     // Force flush to ensure processing
@@ -386,10 +380,11 @@ describe('MessageBatcher', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [externalProcessor, internalProcessor],
     });
 
-    batcher.addProcessor(externalProcessor);
-    batcher.addProcessor(internalProcessor);
+    // batcher.addProcessor(externalProcessor);
+    // batcher.addProcessor(internalProcessor);
     batcher.info('test message');
     await batcher.flush();
 
@@ -425,10 +420,11 @@ describe('MessageBatcher', () => {
       maxWaitMs: 100,
       concurrentProcessors: 2,
       singleton: false,
+      processors: [failingProcessor1, failingProcessor2],
     });
 
-    batcher.addProcessor(failingProcessor1);
-    batcher.addProcessor(failingProcessor2);
+    // batcher.addProcessor(failingProcessor1);
+    // batcher.addProcessor(failingProcessor2);
     batcher.info('test message');
 
     // Advance timer to trigger processing
@@ -513,9 +509,10 @@ describe('Message Classification', () => {
     batcher = createMessageBatcher({
       maxBatchSize: 5,
       maxWaitMs: 100,
+      processors: [mockProcessor],
     });
 
-    batcher.addProcessor(mockProcessor);
+    // batcher.addProcessor(mockProcessor);
 
     // Queue similar messages
     batcher.error('test error 1');
@@ -537,9 +534,10 @@ describe('Message Classification', () => {
       maxBatchSize: 5,
       maxWaitMs: 100,
       singleton: false,
+      processors: [mockProcessor],
     });
 
-    batcher.addProcessor(mockProcessor);
+    // batcher.addProcessor(mockProcessor);
 
     // Queue different types of messages
     batcher.error('test error');
@@ -808,12 +806,9 @@ describe('Flush and Destroy Behavior', () => {
   // let mockProcessor: MessageProcessor;
   let batcher: MessageBatcher;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
-    // mockProcessor = {
-    //   name: 'mock',
-    //   processBatch: jest.fn(),
-    // };
+    if (batcher) await batcher.destroy();
   });
 
   afterEach(async () => {
