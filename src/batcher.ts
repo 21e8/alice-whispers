@@ -154,12 +154,9 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
   async function processBatch(chatId: string): Promise<Queue<Error>> {
     // Try to acquire lock
-    // debugger;
     if (!await acquireLock(chatId)) {
-      // debugger;
       return new Queue<Error>(); // Another process is already handling this queue
     }
-    // debugger;
 
     try {
       const queue = queues.get(chatId);
@@ -227,23 +224,21 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
         }
       }
 
-      const errors = new Queue<Error>();
-
       // Process in batches of concurrentProcessors
       const processorArray = processors.toArray();
+      if (processorArray.length === 0) return new Queue<Error>();
+
       // Convert to array once to avoid emptying the queue multiple times
       const messagesToProcess = processedMessages.toArray();
       const allErrors = new Queue<Error>();
-      // debugger;
       
       // Process all processors concurrently in batches
       for (let i = 0; i < processorArray.length; i += concurrentProcessors) {
         const batch = processorArray.slice(i, i + concurrentProcessors);
-        // debugger;
+        
         const results = await Promise.allSettled(
           batch.map(processor => processor.processBatch(messagesToProcess))
         );
-        // debugger;
         
         // Collect errors from rejected promises
         for (const result of results) {
@@ -257,20 +252,19 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
           }
         }
       }
-      // debugger;
-      // Throw all collected errors at once
-      if (allErrors.size > 0) {
-        // debugger;
-        throw new BatchAggregateError(allErrors, 'Batch processing failed');
-      }
-      // debugger;
-      return errors;
+
+      // Only throw if we actually collected errors
+      // if (allErrors.size > 0) {
+      //   const batchError = new BatchAggregateError(allErrors, 'Batch processing failed');
+      //   throw batchError;
+      // }
+      return allErrors;
     } finally {
       releaseLock(chatId);
     }
   }
 
-  function flushSync(): void {
+  function flushSync(): Queue<Error> {
     const errors = new Queue<Error>();
 
     for (const [chatId] of queues) {
@@ -309,25 +303,22 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       }
     }
 
-    if (errors.size > 0) {
-      throw new BatchAggregateError(errors, 'Batch processing failed');
-    }
+    // if (errors.size > 0) {
+    //   throw new BatchAggregateError(errors, 'Batch processing failed');
+    // }
+    return errors;
   }
 
   async function flush(): Promise<Queue<Error>> {
     const errors = new Queue<Error>();
 
     for (const [chatId] of queues) {
-      // debugger;
       try {
-        // debugger;
         await processBatch(chatId);
       } catch (error) {
-        // debugger;
         if (error instanceof BatchAggregateError) {
-          for (const e of error.errors) {
-            errors.enqueue(e);
-          }
+          const errorArray = error.errors.toArray();
+          errorArray.forEach(e => errors.enqueue(e));
         } else if (error instanceof Error) {
           errors.enqueue(error);
         } else {
@@ -341,7 +332,6 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
   async function destroy(): Promise<Queue<Error>> {
     const errors = await flush();
-
     removeAllProcessors();
     queueTimestamps.clear();
     processingLocks.clear();
