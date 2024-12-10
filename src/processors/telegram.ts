@@ -97,7 +97,7 @@ export function createTelegramProcessor(
   return {
     name: 'telegram',
     logLevel: normalizeLogLevel(config.logLevel),
-    processBatch: async (messages: Message[] | Queue<Message>) => {
+    processBatch: (messages: Message[] | Queue<Message>) => {
       if (messages instanceof Queue) {
         handleQueue(messages, config);
         return;
@@ -113,7 +113,7 @@ export function createTelegramProcessor(
         return;
       }
 
-      await handleMessages(messages, config);
+      handleMessages(messages, config);
     },
   };
 }
