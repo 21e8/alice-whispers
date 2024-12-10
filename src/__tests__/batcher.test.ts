@@ -260,6 +260,8 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle multiple concurrent processors with different speeds', async () => {
+    jest.useFakeTimers();
+    
     const slowProcessor = {
       name: 'slow',
       processBatch: jest.fn(async () => {
@@ -278,12 +280,18 @@ describe('MessageBatcher', () => {
       maxBatchSize: 5,
       maxWaitMs: 100,
       concurrentProcessors: 2,
+      singleton: false,
     });
 
     batcher.addProcessor(slowProcessor);
     batcher.addProcessor(fastProcessor);
     batcher.info('test message');
 
+    // Advance timers and handle all pending promises
+    jest.advanceTimersByTime(100);
+    await Promise.resolve(); // Handle microtasks
+    
+    // Run flush and advance timers for slow processor
     const flushPromise = batcher.flush();
     jest.advanceTimersByTime(100);
     await flushPromise;
@@ -371,9 +379,8 @@ describe('MessageBatcher', () => {
   });
 
   it('should handle multiple errors from different processors', async () => {
-    const error1 = new Error('Error 1');
-    const error2 = new Error('Error 2');
-
+    const error1 = new Error('Process error 1');
+    const error2 = new Error('Process error 2');
     const failingProcessor1 = {
       name: 'failing1',
       processBatch: jest.fn().mockRejectedValue(error1),
@@ -388,6 +395,7 @@ describe('MessageBatcher', () => {
       maxBatchSize: 5,
       maxWaitMs: 100,
       concurrentProcessors: 2,
+      singleton: false,
     });
 
     batcher.addProcessor(failingProcessor1);
@@ -399,7 +407,6 @@ describe('MessageBatcher', () => {
     const errorArray = errors.toArray();
     expect(errorArray).toContainEqual(error1);
     expect(errorArray).toContainEqual(error2);
-    await batcher.destroy();
   });
 
   it('should handle errors during destroy', async () => {
