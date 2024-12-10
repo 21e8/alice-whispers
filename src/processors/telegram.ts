@@ -24,10 +24,7 @@ const sendTelegramMessage = async (
   return response;
 };
 
-const handleQueue = async (
-  messages: Queue<Message>,
-  config: TelegramConfig
-) => {
+const handleQueue = (messages: Queue<Message>, config: TelegramConfig) => {
   if (messages.size === 0) {
     console.debug('[Telegram] No messages to send');
     return;
@@ -56,8 +53,7 @@ const handleQueue = async (
   const filteredMessagesString = filteredMessages.join('\n\n');
 
   try {
-    const response = await sendTelegramMessage(filteredMessagesString, config);
-    console.debug('[Telegram] API Response:', response);
+    sendTelegramMessage(filteredMessagesString, config);
   } catch (error) {
     console.error('[Telegram] API Response:', error);
   }
@@ -117,7 +113,6 @@ export function createTelegramProcessor(
       }
 
       if (config.development) {
-
         console.debug('[Telegram] Would send messages:', messages);
         return;
       }
