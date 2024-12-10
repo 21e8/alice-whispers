@@ -95,7 +95,7 @@ export function createTelegramProcessor(
   config: TelegramConfig
 ): MessageProcessor {
   return {
-    name: 'telegram',
+    name: `telegram-${new Date().toISOString()}`,
     logLevel: normalizeLogLevel(config.logLevel),
     processBatch: (messages: Message[] | Queue<Message>) => {
       if (messages instanceof Queue) {

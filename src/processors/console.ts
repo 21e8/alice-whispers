@@ -17,5 +17,5 @@ export function createConsoleProcessor(): MessageProcessor {
     }
   }
 
-  return { processBatch, name: 'console' };
+  return { processBatch, name: `console-${new Date().toISOString()}` };
 }
