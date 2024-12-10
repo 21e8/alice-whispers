@@ -5,7 +5,7 @@ import {
   addErrorPatterns,
   clearErrorPatterns,
   clearErrorTracking,
-  getAggregatedErrors,
+  // getAggregatedErrors,
   _resetForTesting,
   type ClassifiedError,
 } from '../../utils/classify';
@@ -241,58 +241,58 @@ describe('Error Classifier', () => {
     });
   });
 
-  describe('getAggregatedErrors', () => {
-    it('should return current aggregation state', () => {
-      // Generate some aggregated errors
-      for (let i = 0; i < 3; i++) {
-        classifyMessage('test error message');
-      }
+  // describe('getAggregatedErrors', () => {
+  //   it('should return current aggregation state', () => {
+  //     // Generate some aggregated errors
+  //     for (let i = 0; i < 3; i++) {
+  //       classifyMessage('test error message');
+  //     }
 
-      const aggregated = getAggregatedErrors();
-      expect(Object.keys(aggregated).length).toBeGreaterThan(0);
+  //     const aggregated = getAggregatedErrors();
+  //     expect(Object.keys(aggregated).length).toBeGreaterThan(0);
       
-      const key = 'TEST_ERROR-low-error';
-      expect(aggregated[key]).toBeDefined();
-      expect(aggregated[key].count).toBe(3);
-      expect(aggregated[key].windowMs).toBeLessThanOrEqual(1000);
-    });
+  //     const key = 'TEST_ERROR-low-error';
+  //     expect(aggregated[key]).toBeDefined();
+  //     expect(aggregated[key].count).toBe(3);
+  //     expect(aggregated[key].windowMs).toBeLessThanOrEqual(1000);
+  //   });
 
-    it('should not include expired windows', () => {
-      // Generate aggregated errors
-      for (let i = 0; i < 3; i++) {
-        classifyMessage('test error message');
-      }
+  //   it('should not include expired windows', () => {
+  //     // Generate aggregated errors
+  //     for (let i = 0; i < 3; i++) {
+  //       classifyMessage('test error message');
+  //     }
 
-      // Advance time past window
-      jest.advanceTimersByTime(1100);
+  //     // Advance time past window
+  //     jest.advanceTimersByTime(1100);
       
-      const aggregated = getAggregatedErrors();
-      expect(Object.keys(aggregated).length).toBe(0);
-    });
+  //     const aggregated = getAggregatedErrors();
+  //     expect(Object.keys(aggregated).length).toBe(0);
+  //   });
 
-    it('should track different error types separately', () => {
-      // Add another pattern with aggregation
-      addErrorPatterns([{
-        name: 'another',
-        pattern: /another error/i,
-        category: 'ANOTHER_ERROR',
-        severity: 'medium',
-        aggregation: {
-          windowMs: 1000,
-          countThreshold: 2,
-        },
-      }]);
+  //   it('should track different error types separately', () => {
+  //     // Add another pattern with aggregation
+  //     addErrorPatterns([{
+  //       name: 'another',
+  //       pattern: /another error/i,
+  //       category: 'ANOTHER_ERROR',
+  //       severity: 'medium',
+  //       aggregation: {
+  //         windowMs: 1000,
+  //         countThreshold: 2,
+  //       },
+  //     }]);
 
-      // Generate different types of errors
-      for (let i = 0; i < 2; i++) {
-        classifyMessage('test error message');
-        classifyMessage('another error message');
-      }
+  //     // Generate different types of errors
+  //     for (let i = 0; i < 2; i++) {
+  //       classifyMessage('test error message');
+  //       classifyMessage('another error message');
+  //     }
 
-      const aggregated = getAggregatedErrors();
-      expect(Object.keys(aggregated).length).toBe(2);
-      expect(aggregated['TEST_ERROR-low-error']).toBeDefined();
-      expect(aggregated['ANOTHER_ERROR-medium-error']).toBeDefined();
-    });
-  });
+  //     const aggregated = getAggregatedErrors();
+  //     expect(Object.keys(aggregated).length).toBe(2);
+  //     expect(aggregated['TEST_ERROR-low-error']).toBeDefined();
+  //     expect(aggregated['ANOTHER_ERROR-medium-error']).toBeDefined();
+  //   });
+  // });
 });

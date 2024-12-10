@@ -890,31 +890,4 @@ describe('Flush and Destroy Behavior', () => {
     expect(() => batcher.flushSync()).not.toThrow();
   });
 
-  // it('should handle BatchAggregateError during destroy', async () => {
-  //   const error = new Error('Process error');
-  //   const failingProcessor = {
-  //     name: 'failing',
-  //     processBatch: jest.fn().mockRejectedValue(error),
-  //   };
-
-  //   batcher = createMessageBatcher({
-  //     maxBatchSize: 5,
-  //     maxWaitMs: 100,
-  //   });
-
-  //   const consoleSpy = jest
-  //     .spyOn(console, 'error')
-  //     .mockImplementation(() => {});
-  //   batcher.addProcessor(failingProcessor);
-  //   batcher.info('test message');
-
-  //   // Force immediate processing
-  //   // eslint-disable-next-line @typescript-eslint/no-empty-function
-  //   const errors = await batcher.flush();
-  //   await batcher.destroy();
-
-  //   expect(errors.size).toBe(1);
-  //   expect(errors.dequeue()?.message).toBe('Process error');
-  //   consoleSpy.mockRestore();
-  // }, 10000); // Increase timeout
 });

@@ -129,22 +129,22 @@ export function formatClassifiedError(error: ClassifiedError): string {
   return `Message: ${message}\nCategory: ${category}\nSeverity: ${severity}`;
 }
 
-export function getAggregatedErrors() {
-  const now = Date.now();
-  const result: Record<string, { count: number; windowMs: number }> = {};
+// export function getAggregatedErrors() {
+//   const now = Date.now();
+//   const result: Record<string, { count: number; windowMs: number }> = {};
 
-  for (const [key, group] of messageGroups.entries()) {
-    const age = now - group.firstSeen;
-    if (age <= group.windowMs) {
-      result[key] = {
-        count: group.count,
-        windowMs: age,
-      };
-    }
-  }
+//   for (const [key, group] of messageGroups.entries()) {
+//     const age = now - group.firstSeen;
+//     if (age <= group.windowMs) {
+//       result[key] = {
+//         count: group.count,
+//         windowMs: age,
+//       };
+//     }
+//   }
 
-  return result;
-}
+//   return result;
+// }
 
 // For testing purposes
 export function _resetForTesting() {
