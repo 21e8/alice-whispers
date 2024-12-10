@@ -60,7 +60,7 @@ export type TelegramConfigArray = [
 export interface MessageProcessor {
   name: string;
   logLevel?: LogLevel;
-  processBatch(messages: Message[] | Queue<Message>): void | Promise<void>;
+  processBatch(messages: Message[] | Queue<Message>): void;
 }
 
 export interface MessageBatcher {

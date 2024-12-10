@@ -254,34 +254,16 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     }
   }
 
-  async function enqueueAndPushErrors(
+  function enqueueAndPushErrors(
     processorArray: MessageProcessor[],
     queue: Queue<Message>
-  ): Promise<Queue<Error>> {
-    // Process all processors concurrently in batches
-    const allErrors = new Queue<Error>();
-    // const processorArray = queue.toArray();
+  ): void {
     for (let i = 0; i < processorArray.length; i += concurrentProcessors) {
       const batch = processorArray.slice(i, i + concurrentProcessors);
-
-      const results = await Promise.allSettled(
-        batch.map((processor) => processor.processBatch(queue))
-      );
-
-      // Collect errors from rejected promises
-      for (const result of results) {
-        if (result.status === 'rejected') {
-          const error = result.reason;
-          if (error instanceof Error) {
-            allErrors.enqueue(error);
-          } else {
-            allErrors.enqueue(new Error(String(error)));
-          }
-        }
+      for (const processor of batch) {
+        processor.processBatch(queue);
       }
     }
-
-    return allErrors;
   }
 
   function flushSync(): Queue<Error> {
