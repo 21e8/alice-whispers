@@ -1,5 +1,7 @@
 # Alice Whispers 🌸
 
+Your services love to talk a lot? Your websocket clients are sending you a lot of messages? Whisper your messages right to where you need them and reduce noise.
+
 Intelligent message batching system that whispers your messages in perfect harmony, with smart batching and error classification.
 
 ## Features

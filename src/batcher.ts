@@ -190,15 +190,22 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
         const baseText = text.replace(/\d+/g, 'X'); // Replace numbers with X
         const key = `${category}-${severity}-${level}-${baseText}`;
         let group = messageGroups.get(key);
+       
         if (!group) {
           group = [];
           messageGroups.set(key, group);
         }
+        if (key.includes('BURST_COMPLETE')) {
+          console.log('pushing', key, msg.join(','));
+        }
         group.push(msg);
+
       }
 
       // Second pass: process groups
       for (const group of messageGroups.values()) {
+        // if (group[1].includes('BURST_COMPLETE')) {
+        console.log('group', group.length, group[0][1]);
         if (group.length >= 2) {
           // Create aggregated message
           const [chatId, text, level] = group[0];
@@ -206,12 +213,14 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
           const [, category] = classified;
 
           // For test messages, preserve the original format
+          debugger;
           if (text.includes('message ')) {
             for (const msg of group) {
               processedMessages.enqueue(msg);
             }
           } else {
             // For other messages, use the aggregated format
+            
             processedMessages.enqueue([
               chatId,
               `[AGGREGATED] ${group.length} similar ${category} messages in last 2s`,

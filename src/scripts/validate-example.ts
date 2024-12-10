@@ -13,7 +13,7 @@ async function validateExample() {
       category: 'RATE_LIMIT',
       severity: 'high',
       aggregation: {
-        windowMs: 5000, // 5 second window
+        windowMs: 500, // 5 second window
         countThreshold: 5, // Aggregate after 5 occurrences
       },
     },
@@ -23,7 +23,7 @@ async function validateExample() {
       category: 'BURST_START',
       severity: 'low',
       aggregation: {
-        windowMs: 5000,
+        windowMs: 500,
         countThreshold: 2,
       },
     },
@@ -33,7 +33,7 @@ async function validateExample() {
       category: 'BURST_COMPLETE',
       severity: 'low',
       aggregation: {
-        windowMs: 5000,
+        windowMs: 500,
         countThreshold: 2,
       },
     },
@@ -43,7 +43,7 @@ async function validateExample() {
       category: 'PROGRESS_UPDATE',
       severity: 'low',
       aggregation: {
-        windowMs: 5000,
+        windowMs: 500,
         countThreshold: 2,
       },
     },
@@ -68,8 +68,8 @@ async function validateExample() {
 
   console.log('Sending test messages in bursts...');
   const startTime = Date.now();
-  const totalMessages = 100_000; // 100k messages
-  const burstSize = 5000; // Larger bursts
+  const totalMessages = 1_000_000; // 100k messages
+  const burstSize = 50000; // Larger bursts
   const bursts = Math.ceil(totalMessages / burstSize);
 
   // Send messages in bursts to test both batching and error aggregation
@@ -81,19 +81,15 @@ async function validateExample() {
 
     // Send a burst of rate limit errors
     for (let i = 0; i < burstSize; i++) {
-      try {
-        throw new Error('rate limit exceeded');
-      } catch (error) {
-        batcher.error(`rate limit exceeded`, error as Error);
-      }
+      batcher.error(`rate limit exceeded`);
 
       // Add info messages less frequently
       if (i % 1000 === 0) {
         batcher.info(`Processed ${i} operations in burst ${burst + 1}`);
       }
     }
-
     // Send info message at end of burst
+    console.log('Sending info message at end of burst');
     batcher.info(`Completed burst ${burst + 1} with ${burstSize} operations`);
 
     const burstDuration = Date.now() - burstStart;
@@ -103,7 +99,8 @@ async function validateExample() {
   // Wait for processing to complete
   console.log('\nWaiting for messages to be processed...');
   await batcher.flush();
-
+  await batcher.destroyAll();
+  await new Promise((resolve) => setTimeout(resolve, 0));
   const endTime = Date.now();
   const duration = endTime - startTime;
   const totalProcessed = totalMessages + bursts * 7; // errors + info messages
