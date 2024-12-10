@@ -29,7 +29,8 @@
     "prepublishOnly": "yarn build",
     "ci": "yarn install --frozen-lockfile && yarn build",
     "test-timeout": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/test-timeout.ts",
-    "validate-example": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/validate-example.ts"
+    "validate-example": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/validate-example.ts",
+    "test-limit": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/test-limit.ts"
   },
   "files": [
     "dist",

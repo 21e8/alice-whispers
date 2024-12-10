@@ -63,7 +63,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       const array = processors.toArray();
       array.splice(index, 1);
       processors.clear();
-      array.forEach(p => processors.enqueue(p));
+      array.forEach((p) => processors.enqueue(p));
       processorNames.delete(name);
     }
   }
@@ -73,7 +73,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     processorNames.clear();
   }
 
-  async function acquireLock(chatId: string): Promise<boolean> {
+  function acquireLock(chatId: string): boolean {
     // debugger;
     if (processingLocks.get(chatId)) {
       return false;
@@ -87,26 +87,38 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     processingLocks.delete(chatId);
   }
 
-  async function queueMessage(message: string, level: NotificationLevel): Promise<void> {
+  function queueMessage(message: string, level: NotificationLevel): void {
     const chatId = 'default';
-    
-    // Wait for any ongoing processing to complete
-    while (processingLocks.get(chatId)) {
-      await new Promise(resolve => setTimeout(resolve, 10));
-    }
-
     let queue = queues.get(chatId);
+
+    // console.log('queue size', queue?.size);
+
+    // Wait for any ongoing processing to complete
+    // while (processingLocks.get(chatId)) {
+    //   await new Promise(resolve => setTimeout(resolve, 10));
+    // }
+
+    // console.log('queue size', queue?.size);
     if (!queue) {
+      console.log('creating new queue');
       queue = new Queue<Message>();
       queues.set(chatId, queue);
       queueTimestamps.set(chatId, Date.now());
     }
 
     queue.enqueue([chatId, message, level]);
-
+    // console.log('queue size', queue.size);
     // Process if queue is full
+    // console.log('queue size', queue.size);
+    console.log('queue size', queue.size);
+    // console.log('maxBatchSize', maxBatchSize);
     if (queue.size >= maxBatchSize) {
-      await processBatch(chatId);
+      processBatch(chatId);
+      console.log('processing batch');
+      for (let i = 0; i < maxBatchSize; i++) {
+        queue.dequeue();
+        // console.log('queue size 2', queue.size);
+      }
       return;
     }
 
@@ -115,7 +127,10 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     const timeWaiting = Date.now() - firstMessageTime;
     // debugger;
     if (timeWaiting >= maxWaitMs) {
-      await processBatch(chatId);
+      processBatch(chatId);
+      for (let i = 0; i < maxBatchSize; i++) {
+        queue.dequeue();
+      }
       return;
     }
 
@@ -153,19 +168,21 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
     queues.set(chatId, queue);
   }
 
-  async function processBatch(chatId: string): Promise<Queue<Error>> {
+  function processBatch(chatId: string): void {
     // Try to acquire lock
-    if (!await acquireLock(chatId)) {
-      return new Queue<Error>(); // Another process is already handling this queue
+    if (!acquireLock(chatId)) {
+      // return new Queue<Error>(); // Another process is already handling this queue
+      return;
     }
 
     try {
       const queue = queues.get(chatId);
       if (!queue || queue.size === 0) {
-        return new Queue<Error>();
+        // return new Queue<Error>();
+        return;
       }
 
-      const messages = queue.toArray();
+      // const messages = queue.toArray();
       queue.clear();
       queues.delete(chatId);
       queueTimestamps.delete(chatId);
@@ -181,7 +198,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
       const processedMessages: Queue<Message> = new Queue();
 
       // First pass: group similar messages
-      for (const msg of messages) {
+      for (const msg of queue) {
         const [, text, level] = msg;
         const classified = classifyMessage(text, level);
         const [, category, severity] = classified;
@@ -190,7 +207,7 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
         const baseText = text.replace(/\d+/g, 'X'); // Replace numbers with X
         const key = `${category}-${severity}-${level}-${baseText}`;
         let group = messageGroups.get(key);
-       
+
         if (!group) {
           group = [];
           messageGroups.set(key, group);
@@ -199,13 +216,10 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
           console.log('pushing', key, msg.join(','));
         }
         group.push(msg);
-
       }
 
       // Second pass: process groups
       for (const group of messageGroups.values()) {
-        // if (group[1].includes('BURST_COMPLETE')) {
-        console.log('group', group.length, group[0][1]);
         if (group.length >= 2) {
           // Create aggregated message
           const [chatId, text, level] = group[0];
@@ -213,14 +227,12 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
           const [, category] = classified;
 
           // For test messages, preserve the original format
-          debugger;
           if (text.includes('message ')) {
             for (const msg of group) {
               processedMessages.enqueue(msg);
             }
           } else {
             // For other messages, use the aggregated format
-            
             processedMessages.enqueue([
               chatId,
               `[AGGREGATED] ${group.length} similar ${category} messages in last 2s`,
@@ -235,37 +247,41 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
       // Process in batches of concurrentProcessors
       const processorArray = processors.toArray();
-      if (processorArray.length === 0) return new Queue<Error>();
-
-      // Convert to array once to avoid emptying the queue multiple times
-      const messagesToProcess = processedMessages.toArray();
-      const allErrors = new Queue<Error>();
-      
-      // Process all processors concurrently in batches
-      for (let i = 0; i < processorArray.length; i += concurrentProcessors) {
-        const batch = processorArray.slice(i, i + concurrentProcessors);
-        
-        const results = await Promise.allSettled(
-          batch.map(processor => processor.processBatch(messagesToProcess))
-        );
-        
-        // Collect errors from rejected promises
-        for (const result of results) {
-          if (result.status === 'rejected') {
-            const error = result.reason;
-            if (error instanceof Error) {
-              allErrors.enqueue(error);
-            } else {
-              allErrors.enqueue(new Error(String(error)));
-            }
-          }
-        }
-      }
-
-      return allErrors;
+      if (processorArray.length === 0) return;
+      enqueueAndPushErrors(processorArray, processedMessages);
     } finally {
       releaseLock(chatId);
     }
+  }
+
+  async function enqueueAndPushErrors(
+    processorArray: MessageProcessor[],
+    queue: Queue<Message>
+  ): Promise<Queue<Error>> {
+    // Process all processors concurrently in batches
+    const allErrors = new Queue<Error>();
+    // const processorArray = queue.toArray();
+    for (let i = 0; i < processorArray.length; i += concurrentProcessors) {
+      const batch = processorArray.slice(i, i + concurrentProcessors);
+
+      const results = await Promise.allSettled(
+        batch.map((processor) => processor.processBatch(queue.toArray()))
+      );
+
+      // Collect errors from rejected promises
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          const error = result.reason;
+          if (error instanceof Error) {
+            allErrors.enqueue(error);
+          } else {
+            allErrors.enqueue(new Error(String(error)));
+          }
+        }
+      }
+    }
+
+    return allErrors;
   }
 
   function flushSync(): Queue<Error> {
@@ -306,10 +322,6 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
         }
       }
     }
-
-    // if (errors.size > 0) {
-    //   throw new BatchAggregateError(errors, 'Batch processing failed');
-    // }
     return errors;
   }
 
@@ -318,12 +330,12 @@ export function createMessageBatcher(config: BatcherConfig): MessageBatcher {
 
     for (const [chatId] of queues) {
       try {
-        const batchErrors = await processBatch(chatId);
-        if (batchErrors.size > 0) {
-          for (const error of batchErrors) {
-            errors.enqueue(error);
-          }
-        }
+        processBatch(chatId);
+        // if (batchErrors > 0) {
+        //   for (const error of batchErrors) {
+        //     errors.enqueue(error);
+        //   }
+        // }
       } catch (error) {
         // if (error instanceof BatchAggregateError) {
         //   const errorArray = error.errors.toArray();

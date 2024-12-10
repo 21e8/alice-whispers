@@ -34,7 +34,6 @@ const handleQueue = async (
   }
 
   if (config.development) {
-    debugger
     console.debug('[Telegram] Would send messages:', messages);
     return;
   }
@@ -118,7 +117,7 @@ export function createTelegramProcessor(
       }
 
       if (config.development) {
-        debugger;
+
         console.debug('[Telegram] Would send messages:', messages);
         return;
       }

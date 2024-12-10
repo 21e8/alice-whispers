@@ -13,13 +13,6 @@ Intelligent message batching system that whispers your messages in perfect harmo
 - **Intelligent Error Aggregation**: Reduces noise by grouping similar errors within time windows
 - **Type-Safe**: Written in TypeScript with full type safety
 
-## Performance
-
-- Processes 100,000+ messages in under 6 seconds
-- Average processing time of 0.06ms per message
-- Memory-efficient queue-based implementation
-- Concurrent processor support for high throughput
-
 ## Architecture
 
 ### Queue-Based Design
