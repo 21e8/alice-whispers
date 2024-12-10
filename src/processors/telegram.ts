@@ -1,21 +1,26 @@
-import type { Message, MessageProcessor, TelegramConfig } from '../types';
+import type {
+  Message,
+  MessageProcessor,
+  TelegramConfig,
+  TelegramConfigArray,
+} from '../types';
 import { EMOJI_MAP } from '../utils';
 import { shouldLog, normalizeLogLevel } from '../utils/logging';
 import Queue from '../utils/queue';
 
 const sendTelegramMessage = async (
   messages: string,
-  config: TelegramConfig
+  config: TelegramConfigArray
 ) => {
   const response = await fetch(
-    `https://api.telegram.org/bot${config.botToken}/sendMessage`,
+    `https://api.telegram.org/bot${config[0]}/sendMessage`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        chat_id: config.chatId,
+        chat_id: config[1],
         text: messages,
         parse_mode: 'HTML',
       }),
@@ -24,20 +29,20 @@ const sendTelegramMessage = async (
   return response;
 };
 
-const handleQueue = (messages: Queue<Message>, config: TelegramConfig) => {
+const handleQueue = (messages: Queue<Message>, config: TelegramConfigArray) => {
   if (messages.size === 0) {
     console.debug('[Telegram] No messages to send');
     return;
   }
 
-  if (config.development) {
+  if (config[3]) {
     console.debug('[Telegram] Would send messages:', messages);
     return;
   }
   const formattedMessages: string[] = [];
   for (const msg of messages) {
     const [, text, level, error] = msg;
-    if (!shouldLog(level, config.logLevel)) continue;
+    if (!shouldLog(level, config[4])) continue;
 
     const emoji = EMOJI_MAP[level];
     const message = text.trim();
@@ -61,12 +66,12 @@ const handleQueue = (messages: Queue<Message>, config: TelegramConfig) => {
   }
 };
 
-const handleMessages = (messages: Message[], config: TelegramConfig) => {
+const handleMessages = (messages: Message[], config: TelegramConfigArray) => {
   const formattedMessages = messages
     .map(([, text, level, error]) => {
-      if (!shouldLog(level, config.logLevel)) return null;
+      if (!shouldLog(level, config[4])) return null;
 
-      const emoji = EMOJI_MAP[level];
+      const emoji = EMOJI_MAP[level] || '';
       const message = text.trim();
       if (!message) return null;
       return `${emoji} ${message}${error ? `\n${error}` : ''}`;
@@ -99,7 +104,12 @@ export function createTelegramProcessor(
     logLevel: normalizeLogLevel(config.logLevel),
     processBatch: (messages: Message[] | Queue<Message>) => {
       if (messages instanceof Queue) {
-        handleQueue(messages, config);
+        handleQueue(messages, [
+          config.chatId,
+          config.botToken,
+          undefined,
+          config.development,
+        ]);
         return;
       }
 
@@ -113,7 +123,13 @@ export function createTelegramProcessor(
         return;
       }
 
-      handleMessages(messages, config);
+      handleMessages(messages, [
+        config.botToken,
+        config.chatId,
+        undefined,
+        config.development,
+        config.logLevel,
+      ]);
     },
   };
 }

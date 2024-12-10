@@ -48,6 +48,14 @@ export interface TelegramConfig {
   logLevel?: LogLevel; // defaults to 'trace'
 }
 
+export type TelegramConfigArray = [
+  string, // botToken
+  string, // chatId
+  number?, // batchDelay
+  boolean?, // development
+  LogLevel?, // logLevel
+];
+
 // Simple processor interface that works with arrays
 export interface MessageProcessor {
   name: string;

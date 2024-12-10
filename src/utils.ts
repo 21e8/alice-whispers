@@ -1,4 +1,4 @@
-export const EMOJI_MAP = {
+export const EMOJI_MAP: Record<string, string> = {
   info: 'ℹ️',
   warning: '⚠️',
   error: '🚨',
