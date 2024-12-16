@@ -6,7 +6,6 @@ Intelligent message batching system that whispers your messages in perfect harmo
 
 ## Features
 
-- **High Performance Message Batching**: Process thousands of messages per second with minimal overhead
 - **Smart Error Classification**: Automatically classify and aggregate similar errors
 - **Queue-Based Architecture**: Uses efficient FIFO queues for all append-only operations
 - **Flexible Processor System**: Support for Telegram and custom message processors
@@ -54,11 +53,6 @@ const message = messageQueue.dequeue(); // FIFO order
 - 🔌 Extensible processor system for custom implementations
 - 🎭 Elegant: Beautiful message formatting and intelligent error handling
 - 💪 Written in TypeScript with full type safety
-- **High-Performance Message Processing**
-
-  - Process 250,000+ messages per second
-  - Handle bursts of 5,000 messages in 10-20ms
-  - Average processing time of 0.004ms per message
 
 - **Intelligent Message Aggregation**
 
@@ -380,16 +374,6 @@ const processor = createCustomProcessor({
 
 MIT © 0xAlice
 
-## Performance
-
-In our validation tests on an M3 Pro, the system demonstrates exceptional performance:
-
-- **Throughput**: Processes 100,000+ messages in under 400ms
-- **Speed**: Average processing time of 0.004ms per message
-- **Scalability**: Handles 250,000+ messages per second
-- **Efficiency**: Aggregates thousands of similar messages into meaningful summaries
-- **Batching**: Processes bursts of 5,000 messages in 10-20ms
-- **Memory**: Maintains stable memory usage even at high volumes
 
 Example of message reduction through aggregation:
 
