@@ -17,7 +17,7 @@
     "rootDir": "./src",
     "baseUrl": "."
   },
-  "ninclude": ["src/**/*"],
+  "include": ["src/**/*"],
   "exclude": [
     "node_modules",
     "dist",

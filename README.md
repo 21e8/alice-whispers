@@ -36,14 +36,6 @@ messageQueue.enqueue('Hello');
 const message = messageQueue.dequeue(); // FIFO order
 ```
 
-## Key Benefits
-
-- 🚀 **High-Volume Processing** - Efficiently funnel thousands of messages into smart batches, reducing noise and system load
-- 📊 **Smart Aggregation** - Automatically combines similar messages and errors within configurable time windows
-- 🎯 **Noise Reduction** - Turn message floods into meaningful, actionable updates
-- 🔄 **Resource Efficient** - Optimized for minimal memory usage with array-based message format
-- 🎭 **Zero Dependencies** - Only TypeScript as a peer dependency, keeping your project lean and secure
-
 ## Features
 
 - 🔄 Smart message batching with configurable batch sizes and timing
